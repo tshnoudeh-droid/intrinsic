@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import { StockPriceChart } from "@/components/StockPriceChart";
 import {
   marginOfSafetyPercent,
   valuationLabelFromMargin,
@@ -90,7 +91,7 @@ export function StockPageContent({ symbol }: Props) {
       ) : null}
 
       {!loading && !error && data ? (
-        <div className="flex max-w-lg flex-col items-center gap-6 sm:gap-8">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-8 sm:gap-10">
           <div className="flex flex-col items-center gap-4 sm:gap-5">
             <h1 className="text-4xl font-semibold tracking-tight text-intrinsic-ink sm:text-5xl">
               {data.symbol}
@@ -138,6 +139,12 @@ export function StockPageContent({ symbol }: Props) {
               </>
             )}
           </div>
+
+          <StockPriceChart
+            key={data.symbol}
+            symbol={data.symbol}
+            intrinsicValue={data.intrinsicValue}
+          />
         </div>
       ) : null}
 
