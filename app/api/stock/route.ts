@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { calculateIntrinsicValue } from "@/lib/calculate-intrinsic-value";
 import {
   extractFcfFromBasicFinancials,
   extractLatestAnnualFcfFromFinancialsReported,
@@ -117,7 +118,6 @@ export async function GET(request: NextRequest) {
     const financialsJson = await safeJson(financialsRes);
     const metricJson = await safeJson(metricRes);
 
-    // Financials Reported: latest annual FCF from cash flow statement lines.
     let fcf: number | null = null;
     try {
       fcf = extractLatestAnnualFcfFromFinancialsReported(financialsJson);
@@ -125,7 +125,6 @@ export async function GET(request: NextRequest) {
       fcf = null;
     }
 
-    // Basic Financials (`/stock/metric`): supplement FCF, earnings, shares.
     try {
       if (fcf === null) {
         fcf = extractFcfFromBasicFinancials(metricJson);
@@ -148,13 +147,19 @@ export async function GET(request: NextRequest) {
       sharesOutstanding = sharesFromProfile;
     }
 
+    // FCF preferred; else earnings (per cursor.md).
+    const cashFlow = fcf ?? earnings;
+
+    const intrinsicValue = calculateIntrinsicValue({
+      cashFlow,
+      sharesOutstanding,
+    });
+
     const payload: StockDetailPayload = {
       symbol,
       name,
       price,
-      fcf,
-      earnings,
-      sharesOutstanding,
+      intrinsicValue,
     };
 
     return NextResponse.json(payload);

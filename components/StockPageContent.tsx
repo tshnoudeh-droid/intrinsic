@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import {
+  marginOfSafetyPercent,
+  valuationLabelFromMargin,
+} from "@/lib/valuation-label";
 
 type Props = {
   symbol: string;
@@ -19,15 +23,8 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     typeof o.symbol === "string" &&
     typeof o.name === "string" &&
     typeof o.price === "number" &&
-    isNullableNumber(o.fcf) &&
-    isNullableNumber(o.earnings) &&
-    isNullableNumber(o.sharesOutstanding)
+    isNullableNumber(o.intrinsicValue)
   );
-}
-
-function fmtValue(v: number | null): string {
-  if (v === null) return "N/A";
-  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 export function StockPageContent({ symbol }: Props) {
@@ -70,6 +67,16 @@ export function StockPageContent({ symbol }: Props) {
     };
   }, [symbol]);
 
+  const valuation = useMemo(() => {
+    if (!data || data.intrinsicValue === null) return null;
+    const margin = marginOfSafetyPercent(data.intrinsicValue, data.price);
+    if (margin === null) return null;
+    return {
+      margin,
+      label: valuationLabelFromMargin(margin),
+    };
+  }, [data]);
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 py-16 text-center sm:gap-10 sm:py-20">
       {loading ? (
@@ -96,15 +103,40 @@ export function StockPageContent({ symbol }: Props) {
               })}
             </p>
           </div>
-          <div className="flex w-full max-w-md flex-col gap-2 text-left text-base text-intrinsic-secondary sm:text-lg">
-            <p>
-              <span className="text-intrinsic-ink">FCF: </span>
-              {fmtValue(data.fcf)}
-            </p>
-            <p>
-              <span className="text-intrinsic-ink">Earnings: </span>
-              {fmtValue(data.earnings)}
-            </p>
+
+          <div className="flex w-full max-w-md flex-col gap-3 text-left text-base text-intrinsic-secondary sm:text-lg">
+            {data.intrinsicValue === null ? (
+              <p className="text-center">Valuation unavailable</p>
+            ) : (
+              <>
+                <p>
+                  <span className="text-intrinsic-ink">Intrinsic Value: </span>
+                  <span className="font-medium text-intrinsic-ink">
+                    $
+                    {data.intrinsicValue.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </p>
+                {valuation ? (
+                  <>
+                    <p>
+                      <span className="text-intrinsic-ink">Margin of Safety: </span>
+                      <span className="font-medium text-intrinsic-ink">
+                        {valuation.margin.toLocaleString(undefined, {
+                          maximumFractionDigits: 1,
+                        })}
+                        %
+                      </span>
+                    </p>
+                    <p className="text-center text-lg font-semibold text-intrinsic-ink">
+                      {valuation.label}
+                    </p>
+                  </>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}
