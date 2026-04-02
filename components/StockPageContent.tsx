@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
 import { StockPriceChart } from "@/components/StockPriceChart";
 import {
   marginOfSafetyPercent,
@@ -17,9 +18,18 @@ function isNullableNumber(v: unknown): v is number | null {
   return v === null || typeof v === "number";
 }
 
+function isStockApiError(json: unknown): json is { error: true } {
+  return (
+    typeof json === "object" &&
+    json !== null &&
+    (json as { error?: unknown }).error === true
+  );
+}
+
 function isStockDetailPayload(json: unknown): json is StockDetailPayload {
   if (!json || typeof json !== "object") return false;
   const o = json as Record<string, unknown>;
+  if (o.error === true) return false;
   return (
     typeof o.symbol === "string" &&
     typeof o.name === "string" &&
@@ -43,7 +53,7 @@ function valuationLabelClass(
 
 export function StockPageContent({ symbol }: Props) {
   const [data, setData] = useState<StockDetailPayload | null>(null);
-  const [error, setError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,24 +62,27 @@ export function StockPageContent({ symbol }: Props) {
     fetch(`/api/stock?symbol=${encodeURIComponent(symbol)}`)
       .then(async (res) => {
         if (cancelled) return;
-        if (!res.ok) {
-          setError(true);
+        const json: unknown = await res.json().catch(() => null);
+        if (cancelled) return;
+
+        if (!res.ok || json === null || isStockApiError(json)) {
           setData(null);
+          setLoadError(true);
           return;
         }
-        const json: unknown = await res.json();
+
         if (isStockDetailPayload(json)) {
           setData(json);
-          setError(false);
+          setLoadError(false);
         } else {
-          setError(true);
           setData(null);
+          setLoadError(true);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setError(true);
           setData(null);
+          setLoadError(true);
         }
       })
       .finally(() => {
@@ -91,6 +104,14 @@ export function StockPageContent({ symbol }: Props) {
     };
   }, [data]);
 
+  const unreliableEstimate = useMemo(() => {
+    if (!data || data.intrinsicValue === null) return false;
+    return isIntrinsicEstimatePotentiallyUnreliable(
+      data.intrinsicValue,
+      data.price,
+    );
+  }, [data]);
+
   return (
     <div className="flex w-full flex-1 flex-col items-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
       <div className="w-full max-w-4xl">
@@ -102,16 +123,18 @@ export function StockPageContent({ symbol }: Props) {
         </Link>
 
         {loading ? (
-          <p className="text-center text-lg text-intrinsic-secondary">Loading...</p>
-        ) : null}
-
-        {!loading && error ? (
           <p className="text-center text-lg text-intrinsic-secondary">
-            Failed to load stock data
+            Loading stock data...
           </p>
         ) : null}
 
-        {!loading && !error && data ? (
+        {!loading && loadError ? (
+          <p className="text-center text-lg text-intrinsic-secondary">
+            Failed to load data. Please try again.
+          </p>
+        ) : null}
+
+        {!loading && !loadError && data ? (
           <div className="flex flex-col items-stretch gap-10 sm:gap-12">
             <header className="text-center">
               <h1 className="text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl">
@@ -129,8 +152,12 @@ export function StockPageContent({ symbol }: Props) {
             </header>
 
             {data.intrinsicValue === null ? (
-              <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center text-intrinsic-secondary sm:rounded-3xl sm:px-8 sm:py-10">
-                Valuation unavailable
+              <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
+                <p className="font-medium text-intrinsic-ink">Valuation unavailable</p>
+                <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary sm:text-base">
+                  This stock does not have sufficient financial data for a reliable
+                  valuation.
+                </p>
               </div>
             ) : (
               <section className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-left shadow-sm sm:rounded-3xl sm:px-8 sm:py-10">
@@ -146,6 +173,11 @@ export function StockPageContent({ symbol }: Props) {
                         maximumFractionDigits: 2,
                       })}
                     </p>
+                    {unreliableEstimate ? (
+                      <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
+                        Estimate may be unreliable due to data limitations.
+                      </p>
+                    ) : null}
                   </div>
 
                   {valuation ? (
@@ -193,6 +225,11 @@ export function StockPageContent({ symbol }: Props) {
                 intrinsicValue={data.intrinsicValue}
               />
             </section>
+
+            <p className="mx-auto max-w-xl text-center text-xs leading-relaxed text-intrinsic-secondary/80">
+              Intrinsic values are estimates based on simplified financial models and
+              should not be considered financial advice.
+            </p>
           </div>
         ) : null}
       </div>

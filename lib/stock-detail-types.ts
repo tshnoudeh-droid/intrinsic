@@ -4,3 +4,7 @@ export type StockDetailPayload = {
   price: number;
   intrinsicValue: number | null;
 };
+
+export type StockApiError = {
+  error: true;
+};

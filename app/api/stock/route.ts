@@ -8,6 +8,11 @@ import {
   parseFinnhubNumber,
 } from "@/lib/finnhub-financial-extract";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import {
+  isValidMarketPrice,
+  sanitizeCashFlowForValuation,
+  sanitizeSharesOutstanding,
+} from "@/lib/stock-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +70,10 @@ async function safeJson(res: Response): Promise<unknown | null> {
   }
 }
 
+function finnhubFailureResponse() {
+  return NextResponse.json({ error: true }, { status: 502 });
+}
+
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
   if (!symbol) {
@@ -76,10 +85,7 @@ export async function GET(request: NextRequest) {
 
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Stock data is not configured" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: true }, { status: 503 });
   }
 
   try {
@@ -91,28 +97,35 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!quoteRes.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch quote" },
-        { status: quoteRes.status >= 500 ? 502 : quoteRes.status },
-      );
+      return finnhubFailureResponse();
     }
 
-    const quote = (await quoteRes.json()) as FinnhubQuote;
-    const price = parsePrice(quote);
-    if (price === null) {
-      return NextResponse.json(
-        { error: "No price data available for this symbol" },
-        { status: 404 },
-      );
+    let quote: FinnhubQuote;
+    try {
+      quote = (await quoteRes.json()) as FinnhubQuote;
+    } catch {
+      return finnhubFailureResponse();
     }
+
+    const priceRaw = parsePrice(quote);
+    if (!isValidMarketPrice(priceRaw)) {
+      return finnhubFailureResponse();
+    }
+    const price = priceRaw;
 
     let name = symbol;
     let sharesFromProfile: number | null = null;
     if (profileRes.ok) {
-      const profile = (await profileRes.json()) as FinnhubProfile2;
-      const n = profile.name?.trim();
-      if (n) name = n;
-      sharesFromProfile = parseFinnhubNumber(profile.shareOutstanding);
+      try {
+        const profile = (await profileRes.json()) as FinnhubProfile2;
+        const n = profile.name?.trim();
+        if (n) name = n;
+        sharesFromProfile = sanitizeSharesOutstanding(
+          parseFinnhubNumber(profile.shareOutstanding),
+        );
+      } catch {
+        /* keep defaults */
+      }
     }
 
     const financialsJson = await safeJson(financialsRes);
@@ -142,13 +155,16 @@ export async function GET(request: NextRequest) {
 
     let sharesOutstanding: number | null = null;
     try {
-      sharesOutstanding = extractSharesOutstanding(metricJson, sharesFromProfile);
+      sharesOutstanding = sanitizeSharesOutstanding(
+        extractSharesOutstanding(metricJson, sharesFromProfile),
+      );
     } catch {
       sharesOutstanding = sharesFromProfile;
     }
 
-    // FCF preferred; else earnings (per cursor.md).
-    const cashFlow = fcf ?? earnings;
+    const cashFlow =
+      sanitizeCashFlowForValuation(fcf) ??
+      sanitizeCashFlowForValuation(earnings);
 
     const intrinsicValue = calculateIntrinsicValue({
       cashFlow,
@@ -164,9 +180,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload);
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load stock data" },
-      { status: 502 },
-    );
+    return finnhubFailureResponse();
   }
 }

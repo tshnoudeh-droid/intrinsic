@@ -35,6 +35,10 @@ export function calculateIntrinsicValue(
     return null;
   }
 
+  if (cashFlow <= 0) {
+    return null;
+  }
+
   const g = GROWTH_RATE;
   const r = DISCOUNT_RATE;
   const tg = TERMINAL_GROWTH_RATE;
