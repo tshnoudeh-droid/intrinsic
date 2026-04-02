@@ -28,6 +28,19 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
   );
 }
 
+function valuationLabelClass(
+  label: "Undervalued" | "Fair" | "Overvalued",
+): string {
+  switch (label) {
+    case "Undervalued":
+      return "bg-emerald-50/90 text-emerald-900/90 ring-1 ring-emerald-200/60";
+    case "Overvalued":
+      return "bg-rose-50/90 text-rose-900/85 ring-1 ring-rose-200/55";
+    default:
+      return "bg-stone-100/80 text-intrinsic-ink/85 ring-1 ring-intrinsic-secondary/20";
+  }
+}
+
 export function StockPageContent({ symbol }: Props) {
   const [data, setData] = useState<StockDetailPayload | null>(null);
   const [error, setError] = useState(false);
@@ -79,81 +92,110 @@ export function StockPageContent({ symbol }: Props) {
   }, [data]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 py-16 text-center sm:gap-10 sm:py-20">
-      {loading ? (
-        <p className="text-lg text-intrinsic-secondary">Loading...</p>
-      ) : null}
+    <div className="flex w-full flex-1 flex-col items-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
+      <div className="w-full max-w-4xl">
+        <Link
+          href="/"
+          className="mb-8 inline-flex text-xs font-medium tracking-wide text-intrinsic-secondary/75 transition-colors hover:text-intrinsic-ink sm:mb-10"
+        >
+          ← Back to home
+        </Link>
 
-      {!loading && error ? (
-        <p className="max-w-md text-lg text-intrinsic-secondary">
-          Failed to load stock data
-        </p>
-      ) : null}
+        {loading ? (
+          <p className="text-center text-lg text-intrinsic-secondary">Loading...</p>
+        ) : null}
 
-      {!loading && !error && data ? (
-        <div className="flex w-full max-w-3xl flex-col items-center gap-8 sm:gap-10">
-          <div className="flex flex-col items-center gap-4 sm:gap-5">
-            <h1 className="text-4xl font-semibold tracking-tight text-intrinsic-ink sm:text-5xl">
-              {data.symbol}
-            </h1>
-            <p className="text-lg text-intrinsic-secondary sm:text-xl">{data.name}</p>
-            <p className="text-4xl font-bold tabular-nums text-intrinsic-ink sm:text-5xl">
-              {data.price.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
-          </div>
+        {!loading && error ? (
+          <p className="text-center text-lg text-intrinsic-secondary">
+            Failed to load stock data
+          </p>
+        ) : null}
 
-          <div className="flex w-full max-w-md flex-col gap-3 text-left text-base text-intrinsic-secondary sm:text-lg">
+        {!loading && !error && data ? (
+          <div className="flex flex-col items-stretch gap-10 sm:gap-12">
+            <header className="text-center">
+              <h1 className="text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl">
+                {data.symbol}
+              </h1>
+              <p className="mt-3 text-base text-intrinsic-secondary sm:text-lg">
+                {data.name}
+              </p>
+              <p className="mt-6 text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:mt-7 sm:text-5xl">
+                {data.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </header>
+
             {data.intrinsicValue === null ? (
-              <p className="text-center">Valuation unavailable</p>
+              <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center text-intrinsic-secondary sm:rounded-3xl sm:px-8 sm:py-10">
+                Valuation unavailable
+              </div>
             ) : (
-              <>
-                <p>
-                  <span className="text-intrinsic-ink">Intrinsic Value: </span>
-                  <span className="font-medium text-intrinsic-ink">
-                    $
-                    {data.intrinsicValue.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </p>
-                {valuation ? (
-                  <>
-                    <p>
-                      <span className="text-intrinsic-ink">Margin of Safety: </span>
-                      <span className="font-medium text-intrinsic-ink">
-                        {valuation.margin.toLocaleString(undefined, {
-                          maximumFractionDigits: 1,
-                        })}
-                        %
-                      </span>
+              <section className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-left shadow-sm sm:rounded-3xl sm:px-8 sm:py-10">
+                <div className="flex flex-col gap-6 sm:gap-7">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                      Intrinsic value
                     </p>
-                    <p className="text-center text-lg font-semibold text-intrinsic-ink">
-                      {valuation.label}
+                    <p className="mt-1 text-3xl font-semibold tabular-nums text-intrinsic-ink sm:text-4xl">
+                      $
+                      {data.intrinsicValue.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </p>
-                  </>
-                ) : null}
-              </>
+                  </div>
+
+                  {valuation ? (
+                    <>
+                      <div className="h-px bg-intrinsic-secondary/12" />
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                          Margin of safety
+                        </p>
+                        <p
+                          className={`mt-1 text-2xl font-semibold tabular-nums sm:text-3xl ${
+                            valuation.label === "Undervalued"
+                              ? "text-emerald-900/85"
+                              : valuation.label === "Overvalued"
+                                ? "text-rose-900/85"
+                                : "text-intrinsic-ink"
+                          }`}
+                        >
+                          {valuation.margin.toLocaleString(undefined, {
+                            maximumFractionDigits: 1,
+                          })}
+                          %
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                          Valuation
+                        </p>
+                        <p
+                          className={`mt-3 inline-block rounded-full px-4 py-2 text-sm font-semibold sm:text-base ${valuationLabelClass(valuation.label)}`}
+                        >
+                          {valuation.label}
+                        </p>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </section>
             )}
+
+            <section className="min-w-0">
+              <StockPriceChart
+                key={data.symbol}
+                symbol={data.symbol}
+                intrinsicValue={data.intrinsicValue}
+              />
+            </section>
           </div>
-
-          <StockPriceChart
-            key={data.symbol}
-            symbol={data.symbol}
-            intrinsicValue={data.intrinsicValue}
-          />
-        </div>
-      ) : null}
-
-      <Link
-        href="/"
-        className="text-sm font-medium text-intrinsic-secondary underline-offset-4 hover:underline"
-      >
-        Back to home
-      </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

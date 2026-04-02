@@ -98,17 +98,21 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
   }, [points, intrinsicValue]);
 
   return (
-    <div className="w-full max-w-3xl">
-      <div className="mb-3 flex justify-center gap-2">
+    <div className="w-full">
+      <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+        Price history
+      </p>
+
+      <div className="mb-4 flex flex-wrap justify-center gap-2">
         {RANGES.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             onClick={() => selectRange(key)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
               range === key
-                ? "bg-intrinsic-ink text-intrinsic-light"
-                : "bg-intrinsic-light text-intrinsic-secondary hover:bg-intrinsic-accent/50"
+                ? "bg-intrinsic-ink text-intrinsic-light shadow-md shadow-intrinsic-ink/15 ring-1 ring-intrinsic-ink/10"
+                : "bg-intrinsic-light text-intrinsic-secondary shadow-sm ring-1 ring-intrinsic-secondary/15 hover:bg-intrinsic-accent/60 hover:text-intrinsic-ink hover:shadow"
             }`}
           >
             {label}
@@ -116,7 +120,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-intrinsic-secondary/15 bg-intrinsic-light/80 p-3 sm:p-4">
+      <div className="overflow-hidden rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light p-4 shadow-md shadow-black/[0.04] ring-1 ring-black/[0.03] sm:rounded-3xl sm:p-6">
         {loading ? (
           <p className="py-16 text-center text-sm text-intrinsic-secondary">
             Loading chart...
@@ -130,7 +134,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
             No chart data available for this range.
           </p>
         ) : (
-          <div className="h-[280px] w-full sm:h-[320px]">
+          <div className="h-[260px] w-full min-w-0 sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
@@ -198,7 +202,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
           </div>
         )}
         {!loading && points.length > 0 && intrinsicValue !== null ? (
-          <p className="mt-2 text-center text-xs text-intrinsic-secondary">
+          <p className="mt-4 text-center text-xs text-intrinsic-secondary/90">
             Dashed line: intrinsic value
           </p>
         ) : null}
