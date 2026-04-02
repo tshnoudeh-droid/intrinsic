@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  extractFcfFromBasicFinancials,
+  extractLatestAnnualFcfFromFinancialsReported,
+  extractNetIncomeFromBasicFinancials,
+  extractSharesOutstanding,
+  parseFinnhubNumber,
+} from "@/lib/finnhub-financial-extract";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +20,28 @@ type FinnhubQuote = {
 type FinnhubProfile2 = {
   name?: string;
   ticker?: string;
+  shareOutstanding?: number;
 };
 
 function finnhubUrl(path: string, symbol: string, token: string): string {
   const url = new URL(`${FINNHUB_BASE}${path}`);
   url.searchParams.set("symbol", symbol);
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+function finnhubMetricAllUrl(symbol: string, token: string): string {
+  const url = new URL(`${FINNHUB_BASE}/stock/metric`);
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("metric", "all");
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+function finnhubFinancialsReportedUrl(symbol: string, token: string): string {
+  const url = new URL(`${FINNHUB_BASE}/stock/financials-reported`);
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("freq", "annual");
   url.searchParams.set("token", token);
   return url.toString();
 }
@@ -29,6 +53,15 @@ function parsePrice(quote: FinnhubQuote): number | null {
   if (raw === undefined || raw === null) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+async function safeJson(res: Response): Promise<unknown | null> {
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -49,9 +82,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [quoteRes, profileRes] = await Promise.all([
+    const [quoteRes, profileRes, financialsRes, metricRes] = await Promise.all([
       fetch(finnhubUrl("/quote", symbol, apiKey), { cache: "no-store" }),
       fetch(finnhubUrl("/stock/profile2", symbol, apiKey), { cache: "no-store" }),
+      fetch(finnhubFinancialsReportedUrl(symbol, apiKey), { cache: "no-store" }),
+      fetch(finnhubMetricAllUrl(symbol, apiKey), { cache: "no-store" }),
     ]);
 
     if (!quoteRes.ok) {
@@ -71,16 +106,55 @@ export async function GET(request: NextRequest) {
     }
 
     let name = symbol;
+    let sharesFromProfile: number | null = null;
     if (profileRes.ok) {
       const profile = (await profileRes.json()) as FinnhubProfile2;
       const n = profile.name?.trim();
       if (n) name = n;
+      sharesFromProfile = parseFinnhubNumber(profile.shareOutstanding);
+    }
+
+    const financialsJson = await safeJson(financialsRes);
+    const metricJson = await safeJson(metricRes);
+
+    // Financials Reported: latest annual FCF from cash flow statement lines.
+    let fcf: number | null = null;
+    try {
+      fcf = extractLatestAnnualFcfFromFinancialsReported(financialsJson);
+    } catch {
+      fcf = null;
+    }
+
+    // Basic Financials (`/stock/metric`): supplement FCF, earnings, shares.
+    try {
+      if (fcf === null) {
+        fcf = extractFcfFromBasicFinancials(metricJson);
+      }
+    } catch {
+      /* keep fcf */
+    }
+
+    let earnings: number | null = null;
+    try {
+      earnings = extractNetIncomeFromBasicFinancials(metricJson);
+    } catch {
+      earnings = null;
+    }
+
+    let sharesOutstanding: number | null = null;
+    try {
+      sharesOutstanding = extractSharesOutstanding(metricJson, sharesFromProfile);
+    } catch {
+      sharesOutstanding = sharesFromProfile;
     }
 
     const payload: StockDetailPayload = {
       symbol,
       name,
       price,
+      fcf,
+      earnings,
+      sharesOutstanding,
     };
 
     return NextResponse.json(payload);
