@@ -214,6 +214,7 @@ export async function GET(request: NextRequest) {
       sharesOutstanding !== null &&
       sharesOutstanding > 0
     ) {
+      // DCF uses the same `growthRateUsed` as returned in the JSON (revenueGrowth / CAGR / default).
       intrinsicValue = runTwoStageDcf(
         cashFlow,
         growthRateUsed,

@@ -4,8 +4,10 @@ import { VALUATION_MARGIN_BAND_PCT } from "@/lib/valuation-label";
 /**
  * Short narrative tied to margin-of-safety bands and published DCF assumptions.
  */
-export function buildValuationExplanation(marginOfSafetyPercent: number): string {
-  const growthPct = DCF_ASSUMPTIONS.growthRate * 100;
+export function buildValuationExplanation(
+  marginOfSafetyPercent: number,
+  growthRateUsed: number,
+): string {
   const discountPct = DCF_ASSUMPTIONS.discountRate * 100;
 
   let verdict: string;
@@ -16,6 +18,8 @@ export function buildValuationExplanation(marginOfSafetyPercent: number): string
   } else {
     verdict = "fairly valued";
   }
+
+  const growthPct = (growthRateUsed * 100).toFixed(1);
 
   return `This stock appears ${verdict} based on projected cash flows growing at ${growthPct}% annually and discounted at ${discountPct}%.`;
 }

@@ -6,11 +6,10 @@ export const dynamic = "force-dynamic";
 
 const yahooFinance = new YahooFinance();
 
-/** Buffer days per STEP 3 (1M = 90d, 3M = 120d, 1Y = 400d). */
 const RANGE_DAYS: Record<HistoryRange, number> = {
-  "1M": 90,
-  "3M": 120,
-  "1Y": 400,
+  "1M": 35,
+  "3M": 100,
+  "1Y": 380,
 };
 
 function normalizeRange(param: string | null): HistoryRange | null {
