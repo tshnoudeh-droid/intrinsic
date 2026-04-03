@@ -1,3 +1,6 @@
+/** Band (±) used for fair vs under/over labels and narrative copy. */
+export const VALUATION_MARGIN_BAND_PCT = 15;
+
 /**
  * marginOfSafety is a percentage (e.g. 20 for 20%).
  * > 15% → Undervalued; [-15%, 15%] → Fair; < -15% → Overvalued.
@@ -5,8 +8,8 @@
 export function valuationLabelFromMargin(
   marginOfSafetyPercent: number,
 ): "Undervalued" | "Fair" | "Overvalued" {
-  if (marginOfSafetyPercent > 15) return "Undervalued";
-  if (marginOfSafetyPercent < -15) return "Overvalued";
+  if (marginOfSafetyPercent > VALUATION_MARGIN_BAND_PCT) return "Undervalued";
+  if (marginOfSafetyPercent < -VALUATION_MARGIN_BAND_PCT) return "Overvalued";
   return "Fair";
 }
 

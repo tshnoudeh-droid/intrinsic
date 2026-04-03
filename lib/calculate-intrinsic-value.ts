@@ -1,8 +1,10 @@
-/** Hardcoded Smart Simplified DCF assumptions (v1). */
-const GROWTH_RATE = 0.05;
-const DISCOUNT_RATE = 0.09;
-const TERMINAL_GROWTH_RATE = 0.025;
-const YEARS = 5;
+/** Single source of truth for Smart Simplified DCF (v1). */
+export const DCF_ASSUMPTIONS = {
+  growthRate: 0.05,
+  discountRate: 0.09,
+  terminalGrowthRate: 0.025,
+  projectionYears: 5,
+} as const;
 
 export type IntrinsicValueInput = {
   cashFlow: number | null | undefined;
@@ -39,10 +41,10 @@ export function calculateIntrinsicValue(
     return null;
   }
 
-  const g = GROWTH_RATE;
-  const r = DISCOUNT_RATE;
-  const tg = TERMINAL_GROWTH_RATE;
-  const n = YEARS;
+  const g = DCF_ASSUMPTIONS.growthRate;
+  const r = DCF_ASSUMPTIONS.discountRate;
+  const tg = DCF_ASSUMPTIONS.terminalGrowthRate;
+  const n = DCF_ASSUMPTIONS.projectionYears;
 
   if (r <= tg) {
     return null;

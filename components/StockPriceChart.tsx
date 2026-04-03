@@ -109,10 +109,10 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
             key={key}
             type="button"
             onClick={() => selectRange(key)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ease-out ${
               range === key
                 ? "bg-intrinsic-ink text-intrinsic-light shadow-md shadow-intrinsic-ink/15 ring-1 ring-intrinsic-ink/10"
-                : "bg-intrinsic-light text-intrinsic-secondary shadow-sm ring-1 ring-intrinsic-secondary/15 hover:bg-intrinsic-accent/60 hover:text-intrinsic-ink hover:shadow"
+                : "bg-intrinsic-light text-intrinsic-secondary shadow-sm ring-1 ring-intrinsic-secondary/15 hover:scale-[1.03] hover:bg-intrinsic-accent/60 hover:text-intrinsic-ink hover:shadow active:scale-100"
             }`}
           >
             {label}

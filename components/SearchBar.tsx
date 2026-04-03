@@ -159,7 +159,7 @@ export function SearchBar() {
         onChange={(e) => setQuery(e.target.value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        className="w-full rounded-2xl border border-intrinsic-secondary/25 bg-intrinsic-light px-4 py-3.5 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow] focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg sm:px-5 sm:py-4 sm:text-lg"
+        className="w-full rounded-2xl border border-intrinsic-secondary/25 bg-intrinsic-light px-4 py-3.5 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow,transform] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg sm:px-5 sm:py-4 sm:text-lg"
       />
 
       {showDropdown ? (
@@ -193,7 +193,7 @@ export function SearchBar() {
                   type="button"
                   role="option"
                   aria-selected={false}
-                  className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left transition-colors hover:bg-intrinsic-light"
+                  className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left transition-colors duration-200 ease-out hover:bg-intrinsic-light active:bg-intrinsic-accent/30"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     handleSelect(row.symbol);

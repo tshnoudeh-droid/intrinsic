@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
+import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
+import { STOCK_PAGE_COPY } from "@/lib/stock-page-copy";
+import { buildValuationExplanation } from "@/lib/valuation-explanation";
 import { StockPriceChart } from "@/components/StockPriceChart";
 import {
   marginOfSafetyPercent,
@@ -104,6 +108,11 @@ export function StockPageContent({ symbol }: Props) {
     };
   }, [data]);
 
+  const explanationText = useMemo(() => {
+    if (!valuation) return null;
+    return buildValuationExplanation(valuation.margin);
+  }, [valuation]);
+
   const unreliableEstimate = useMemo(() => {
     if (!data || data.intrinsicValue === null) return false;
     return isIntrinsicEstimatePotentiallyUnreliable(
@@ -117,25 +126,25 @@ export function StockPageContent({ symbol }: Props) {
       <div className="w-full max-w-4xl">
         <Link
           href="/"
-          className="mb-8 inline-flex text-xs font-medium tracking-wide text-intrinsic-secondary/75 transition-colors hover:text-intrinsic-ink sm:mb-10"
+          className="mb-8 inline-flex text-xs font-medium tracking-wide text-intrinsic-secondary/75 transition-colors duration-200 ease-out hover:text-intrinsic-ink sm:mb-10"
         >
           ← Back to home
         </Link>
 
         {loading ? (
           <p className="text-center text-lg text-intrinsic-secondary">
-            Loading stock data...
+            {STOCK_PAGE_COPY.loading}
           </p>
         ) : null}
 
         {!loading && loadError ? (
           <p className="text-center text-lg text-intrinsic-secondary">
-            Failed to load data. Please try again.
+            {STOCK_PAGE_COPY.loadError}
           </p>
         ) : null}
 
         {!loading && !loadError && data ? (
-          <div className="flex flex-col items-stretch gap-10 sm:gap-12">
+          <div className="animate-stock-page-enter flex flex-col items-stretch gap-10 sm:gap-12">
             <header className="text-center">
               <h1 className="text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl">
                 {data.symbol}
@@ -144,19 +153,17 @@ export function StockPageContent({ symbol }: Props) {
                 {data.name}
               </p>
               <p className="mt-6 text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:mt-7 sm:text-5xl">
-                {data.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatCurrencyDisplay(data.price)}
               </p>
             </header>
 
             {data.intrinsicValue === null ? (
               <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
-                <p className="font-medium text-intrinsic-ink">Valuation unavailable</p>
+                <p className="font-medium text-intrinsic-ink">
+                  {STOCK_PAGE_COPY.valuationUnavailableTitle}
+                </p>
                 <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary sm:text-base">
-                  This stock does not have sufficient financial data for a reliable
-                  valuation.
+                  {STOCK_PAGE_COPY.valuationUnavailableBody}
                 </p>
               </div>
             ) : (
@@ -167,15 +174,11 @@ export function StockPageContent({ symbol }: Props) {
                       Intrinsic value
                     </p>
                     <p className="mt-1 text-3xl font-semibold tabular-nums text-intrinsic-ink sm:text-4xl">
-                      $
-                      {data.intrinsicValue.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatCurrencyDisplay(data.intrinsicValue)}
                     </p>
                     {unreliableEstimate ? (
                       <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
-                        Estimate may be unreliable due to data limitations.
+                        {STOCK_PAGE_COPY.unreliableEstimate}
                       </p>
                     ) : null}
                   </div>
@@ -196,10 +199,7 @@ export function StockPageContent({ symbol }: Props) {
                                 : "text-intrinsic-ink"
                           }`}
                         >
-                          {valuation.margin.toLocaleString(undefined, {
-                            maximumFractionDigits: 1,
-                          })}
-                          %
+                          {formatPercentOneDecimal(valuation.margin)}
                         </p>
                       </div>
                       <div>
@@ -218,6 +218,59 @@ export function StockPageContent({ symbol }: Props) {
               </section>
             )}
 
+            {data.intrinsicValue !== null && explanationText ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                  {STOCK_PAGE_COPY.explanationSectionTitle}
+                </p>
+                <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-6 text-left sm:rounded-3xl sm:px-8 sm:py-7">
+                  <p className="text-sm leading-relaxed text-intrinsic-ink sm:text-base">
+                    {explanationText}
+                  </p>
+                  <p className="mt-4 text-xs leading-relaxed text-intrinsic-secondary/90 sm:text-sm">
+                    {STOCK_PAGE_COPY.tfsaNote}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <section
+              className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light/90 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
+              aria-label={STOCK_PAGE_COPY.modelAssumptionsTitle}
+            >
+              <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                {STOCK_PAGE_COPY.modelAssumptionsTitle}
+              </p>
+              <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
+                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                  <dt>Growth rate</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {formatPercentOneDecimal(DCF_ASSUMPTIONS.growthRate * 100)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                  <dt>Discount rate</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {formatPercentOneDecimal(DCF_ASSUMPTIONS.discountRate * 100)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                  <dt>Terminal growth</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {formatPercentOneDecimal(
+                      DCF_ASSUMPTIONS.terminalGrowthRate * 100,
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                  <dt>Projection period</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {DCF_ASSUMPTIONS.projectionYears} years
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
             <section className="min-w-0">
               <StockPriceChart
                 key={data.symbol}
@@ -227,8 +280,7 @@ export function StockPageContent({ symbol }: Props) {
             </section>
 
             <p className="mx-auto max-w-xl text-center text-xs leading-relaxed text-intrinsic-secondary/80">
-              Intrinsic values are estimates based on simplified financial models and
-              should not be considered financial advice.
+              {STOCK_PAGE_COPY.disclaimer}
             </p>
           </div>
         ) : null}

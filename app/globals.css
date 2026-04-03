@@ -25,3 +25,18 @@ body {
   color: var(--color-intrinsic-ink);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+@keyframes stock-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-stock-page-enter {
+  animation: stock-page-enter 0.55s ease-out forwards;
+}
