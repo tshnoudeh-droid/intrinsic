@@ -1,181 +1,255 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calculateIntrinsicValue } from "@/lib/calculate-intrinsic-value";
-import {
-  computeFcfFromOperatingAndCapEx,
-  extractNetIncomeFromFinancialsReported,
-  extractOperatingCashFlowAndCapExFromReported,
-  parseFinnhubNumber,
-  resolveSharesOutstanding,
-} from "@/lib/finnhub-financial-extract";
-import type { StockDetailPayload } from "@/lib/stock-detail-types";
-import {
-  isValidMarketPrice,
-  sanitizeCashFlowForValuation,
-  sanitizeSharesOutstanding,
-} from "@/lib/stock-validation";
+import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
 
-const FINNHUB_BASE = "https://finnhub.io/api/v1";
+const yahooFinance = new YahooFinance();
 
-type FinnhubQuote = {
-  c?: number;
-  pc?: number;
-};
+const DISCOUNT_RATE = 0.09;
+const TERMINAL_GROWTH_RATE = 0.025;
+const PROJECTION_YEARS = 5;
+const DEFAULT_GROWTH = 0.05;
 
-type FinnhubProfile2 = {
-  name?: string;
-  ticker?: string;
-  shareOutstanding?: number;
-  marketCapitalization?: number;
-};
-
-function finnhubUrl(path: string, symbol: string, token: string): string {
-  const url = new URL(`${FINNHUB_BASE}${path}`);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("token", token);
-  return url.toString();
+function safeFinite(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x);
 }
 
-function finnhubMetricAllUrl(symbol: string, token: string): string {
-  const url = new URL(`${FINNHUB_BASE}/stock/metric`);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("metric", "all");
-  url.searchParams.set("token", token);
-  return url.toString();
+function num(x: unknown): number | null {
+  return safeFinite(x) ? x : null;
 }
 
-function finnhubFinancialsReportedUrl(symbol: string, token: string): string {
-  const url = new URL(`${FINNHUB_BASE}/stock/financials-reported`);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("freq", "annual");
-  url.searchParams.set("token", token);
-  return url.toString();
+/** Yahoo sometimes returns growth as decimal (0.12) or percent (12). */
+function asGrowthDecimal(v: unknown): number | null {
+  const x = num(v);
+  if (x === null) return null;
+  if (x >= -1 && x <= 1) return x;
+  if (Math.abs(x) <= 100) return x / 100;
+  return null;
 }
 
-function parsePrice(quote: FinnhubQuote): number | null {
-  const c = quote.c;
-  const pc = quote.pc;
-  const raw = c ?? pc;
-  if (raw === undefined || raw === null) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
+function fcfFromCashflowRow(row: Record<string, unknown>): number | null {
+  const ocf = num(row.totalCashFromOperatingActivities);
+  const capexRaw = row.capitalExpenditures ?? row.capitalExpenditure;
+  const capex = num(capexRaw);
+  if (ocf === null || capex === null) return null;
+  return ocf - Math.abs(capex);
 }
 
-async function safeJson(res: Response): Promise<unknown | null> {
-  if (!res.ok) return null;
-  try {
-    return (await res.json()) as unknown;
-  } catch {
+function computeGrowthRateUsed(
+  revenueGrowthRaw: unknown,
+  revenueCagr: number | null,
+): number {
+  const rg = asGrowthDecimal(revenueGrowthRaw);
+  if (rg !== null && rg >= 0.02 && rg <= 0.2) {
+    return rg;
+  }
+  if (revenueCagr !== null && Number.isFinite(revenueCagr)) {
+    return revenueCagr;
+  }
+  return DEFAULT_GROWTH;
+}
+
+function computeRevenueCagr(
+  newer: number | undefined,
+  older: number | undefined,
+): number | null {
+  if (!safeFinite(newer) || !safeFinite(older) || older <= 0 || newer <= 0) {
     return null;
   }
+  const raw = newer / older - 1;
+  if (!Number.isFinite(raw)) return null;
+  return Math.max(0.02, Math.min(0.2, raw));
 }
 
-function finnhubFailureResponse() {
-  return NextResponse.json({ error: true }, { status: 502 });
+function runTwoStageDcf(
+  baseCashFlow: number,
+  growthRate: number,
+  sharesOutstanding: number,
+): number | null {
+  if (
+    !Number.isFinite(baseCashFlow) ||
+    baseCashFlow <= 0 ||
+    !Number.isFinite(sharesOutstanding) ||
+    sharesOutstanding <= 0
+  ) {
+    return null;
+  }
+
+  const g = growthRate;
+  const r = DISCOUNT_RATE;
+  const tg = TERMINAL_GROWTH_RATE;
+  const n = PROJECTION_YEARS;
+
+  if (r <= tg) return null;
+
+  let sumPv = 0;
+  for (let year = 1; year <= n; year++) {
+    const cfYear = baseCashFlow * (1 + g) ** year;
+    const pv = cfYear / (1 + r) ** year;
+    if (!Number.isFinite(pv)) return null;
+    sumPv += pv;
+  }
+
+  const lastCf = baseCashFlow * (1 + g) ** n;
+  const terminalValue = (lastCf * (1 + tg)) / (r - tg);
+  const pvTerminal = terminalValue / (1 + r) ** n;
+
+  if (!Number.isFinite(pvTerminal)) return null;
+
+  const total = sumPv + pvTerminal;
+  const intrinsic = total / sharesOutstanding;
+  return Number.isFinite(intrinsic) ? intrinsic : null;
 }
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
   if (!symbol) {
     return NextResponse.json(
-      { error: "Symbol is required" },
+      { error: true, message: "Symbol is required" },
       { status: 400 },
     );
   }
 
-  const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: true }, { status: 503 });
-  }
-
   try {
-    const [quoteRes, profileRes, financialsRes, metricRes] = await Promise.all([
-      fetch(finnhubUrl("/quote", symbol, apiKey), { cache: "no-store" }),
-      fetch(finnhubUrl("/stock/profile2", symbol, apiKey), { cache: "no-store" }),
-      fetch(finnhubFinancialsReportedUrl(symbol, apiKey), { cache: "no-store" }),
-      fetch(finnhubMetricAllUrl(symbol, apiKey), { cache: "no-store" }),
+    const [summary, quoteRaw] = await Promise.all([
+      yahooFinance.quoteSummary(symbol, {
+        modules: [
+          "financialData",
+          "defaultKeyStatistics",
+          "incomeStatementHistory",
+          "cashflowStatementHistory",
+        ],
+      }),
+      yahooFinance.quote(symbol),
     ]);
 
-    if (!quoteRes.ok) {
-      return finnhubFailureResponse();
+    const quote = Array.isArray(quoteRaw) ? quoteRaw[0] : quoteRaw;
+    if (!quote || typeof quote !== "object") {
+      return NextResponse.json(
+        { error: true, message: "Failed to load data" },
+        { status: 502 },
+      );
     }
 
-    let quote: FinnhubQuote;
-    try {
-      quote = (await quoteRes.json()) as FinnhubQuote;
-    } catch {
-      return finnhubFailureResponse();
+    const fd = summary.financialData;
+    const dks = summary.defaultKeyStatistics;
+    const inc = summary.incomeStatementHistory?.incomeStatementHistory;
+    const cfHist = summary.cashflowStatementHistory?.cashflowStatements;
+
+    const price =
+      num(fd?.currentPrice) ?? num((quote as { regularMarketPrice?: number }).regularMarketPrice);
+
+    if (price === null || price <= 0) {
+      return NextResponse.json(
+        { error: true, message: "Failed to load data" },
+        { status: 502 },
+      );
     }
 
-    const priceRaw = parsePrice(quote);
-    if (!isValidMarketPrice(priceRaw)) {
-      return finnhubFailureResponse();
+    const name = String((quote as { shortName?: string }).shortName ?? symbol);
+
+    const sharesOutstanding = num(dks?.sharesOutstanding);
+    const forwardEps = num(dks?.forwardEps);
+    const freeCashflowAnnual = num(fd?.freeCashflow);
+
+    let revenueCagr: number | null = null;
+    if (Array.isArray(inc) && inc.length >= 2) {
+      const sorted = [...inc].sort(
+        (a, b) =>
+          new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+      );
+      revenueCagr = computeRevenueCagr(
+        sorted[0]?.totalRevenue,
+        sorted[1]?.totalRevenue,
+      );
     }
-    const price = priceRaw;
 
-    let name = symbol;
-    let marketCap: number | null = null;
-    if (profileRes.ok) {
-      try {
-        const profile = (await profileRes.json()) as FinnhubProfile2;
-        const n = profile.name?.trim();
-        if (n) name = n;
-        marketCap = parseFinnhubNumber(profile.marketCapitalization);
-      } catch {
-        /* keep symbol as name */
-      }
-    }
+    const growthRateUsed = computeGrowthRateUsed(fd?.revenueGrowth, revenueCagr);
 
-    const financialsJson = await safeJson(financialsRes);
-    const metricJson = await safeJson(metricRes);
-
-    // TEMPORARY: inspect /stock/metric (set STOCK_DEBUG_FINNHUB=1 for any env)
-    if (
-      process.env.NODE_ENV === "development" ||
-      process.env.STOCK_DEBUG_FINNHUB === "1"
-    ) {
-      console.log("[stock debug] financialsReported:", JSON.stringify(financialsJson));
-      console.log("[stock debug] /stock/metric full response:", JSON.stringify(metricJson));
-      if (metricJson && typeof metricJson === "object") {
-        const m = (metricJson as { metric?: unknown }).metric;
-        if (m && typeof m === "object") {
-          console.log("[stock debug] metric keys:", Object.keys(m as object));
+    const fcfByYear: number[] = [];
+    if (Array.isArray(cfHist) && cfHist.length > 0) {
+      const sortedCf = [...cfHist].sort(
+        (a, b) =>
+          new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+      );
+      for (const stmt of sortedCf.slice(0, 2)) {
+        const f = fcfFromCashflowRow(stmt as unknown as Record<string, unknown>);
+        if (f !== null && Number.isFinite(f)) {
+          fcfByYear.push(f);
         }
       }
     }
 
-    const { operatingCashFlow, capitalExpenditures } =
-      extractOperatingCashFlowAndCapExFromReported(financialsJson);
-    const fcf = computeFcfFromOperatingAndCapEx(
-      operatingCashFlow,
-      capitalExpenditures,
-    );
+    let averagedFcf: number | null = null;
+    if (fcfByYear.length > 0) {
+      averagedFcf =
+        fcfByYear.reduce((a, b) => a + b, 0) / fcfByYear.length;
+      if (!Number.isFinite(averagedFcf)) averagedFcf = null;
+    }
 
-    const earnings = extractNetIncomeFromFinancialsReported(financialsJson);
+    let cashFlow: number | null = null;
+    let fcfReported: number | null = averagedFcf;
 
-    const cashFlowSelected = fcf ?? earnings;
-    const cashFlow = sanitizeCashFlowForValuation(cashFlowSelected);
+    if (averagedFcf !== null && averagedFcf > 0) {
+      cashFlow = averagedFcf;
+    } else if (freeCashflowAnnual !== null && freeCashflowAnnual > 0) {
+      cashFlow = freeCashflowAnnual;
+      fcfReported = freeCashflowAnnual;
+    } else if (
+      forwardEps !== null &&
+      forwardEps > 0 &&
+      sharesOutstanding !== null &&
+      sharesOutstanding > 0
+    ) {
+      cashFlow = forwardEps * sharesOutstanding;
+      fcfReported = null;
+    }
 
-    const sharesRaw = resolveSharesOutstanding(metricJson, marketCap, price);
-    const sharesOutstanding = sanitizeSharesOutstanding(sharesRaw);
+    let intrinsicValue: number | null = null;
+    let marginOfSafety: number | null = null;
 
-    const intrinsicValue = calculateIntrinsicValue({
-      cashFlow,
-      sharesOutstanding,
-    });
+    if (
+      cashFlow !== null &&
+      cashFlow > 0 &&
+      sharesOutstanding !== null &&
+      sharesOutstanding > 0
+    ) {
+      intrinsicValue = runTwoStageDcf(
+        cashFlow,
+        growthRateUsed,
+        sharesOutstanding,
+      );
+      if (
+        intrinsicValue !== null &&
+        Number.isFinite(intrinsicValue) &&
+        price > 0
+      ) {
+        marginOfSafety = ((intrinsicValue - price) / price) * 100;
+        if (!Number.isFinite(marginOfSafety)) marginOfSafety = null;
+      }
+    }
 
-    const payload: StockDetailPayload = {
+    const payload = {
       symbol,
       name,
       price,
       intrinsicValue,
+      marginOfSafety,
+      growthRateUsed,
       cashFlowUsed: cashFlow,
-      sharesOutstanding,
+      sharesOutstanding:
+        sharesOutstanding !== null && Number.isFinite(sharesOutstanding)
+          ? sharesOutstanding
+          : null,
+      fcf: fcfReported,
+      dataSource: "yahoo-finance2" as const,
     };
 
     return NextResponse.json(payload);
   } catch {
-    return finnhubFailureResponse();
+    return NextResponse.json(
+      { error: true, message: "Failed to load data" },
+      { status: 502 },
+    );
   }
 }

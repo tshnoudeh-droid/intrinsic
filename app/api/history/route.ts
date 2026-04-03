@@ -1,84 +1,89 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { HistoryPoint } from "@/lib/history-types";
+import type { HistoryPoint, HistoryRange } from "@/lib/history-types";
+import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
 
-const FINNHUB_CANDLE = "https://finnhub.io/api/v1/stock/candle";
+const yahooFinance = new YahooFinance();
 
-/** DEBUG MODE: force test symbol — remove after chart verified */
-const DEBUG_SYMBOL = "AAPL";
-
-type FinnhubCandles = {
-  s?: string;
-  c?: number[];
-  t?: number[];
+/** Buffer days per STEP 3 (1M = 90d, 3M = 120d, 1Y = 400d). */
+const RANGE_DAYS: Record<HistoryRange, number> = {
+  "1M": 90,
+  "3M": 120,
+  "1Y": 400,
 };
 
+function normalizeRange(param: string | null): HistoryRange | null {
+  if (param === null || param.trim() === "") return null;
+  const u = param.trim().toUpperCase();
+  if (u === "1M" || u === "3M" || u === "1Y") {
+    return u as HistoryRange;
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
-  void request;
-  const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
+  const symbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
+  const rawRange = request.nextUrl.searchParams.get("range");
+
+  if (!symbol) {
     return NextResponse.json(
-      { error: "History is not configured" },
-      { status: 503 },
+      { error: "Symbol is required" },
+      { status: 400 },
     );
   }
 
-  // TEMP: always last 90 days (range buttons disabled on frontend)
-  const symbol = DEBUG_SYMBOL;
-  const to = Math.floor(Date.now() / 1000);
-  const from = to - 90 * 24 * 60 * 60;
+  const resolvedRange: HistoryRange =
+    rawRange === null || rawRange.trim() === ""
+      ? "1M"
+      : normalizeRange(rawRange) ?? "1M";
 
-  console.log("SYMBOL:", symbol);
-  console.log("FROM:", from);
-  console.log("TO:", to);
-
-  const url = new URL(FINNHUB_CANDLE);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("resolution", "D");
-  url.searchParams.set("from", String(from));
-  url.searchParams.set("to", String(to));
-  url.searchParams.set("token", apiKey);
-
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), { cache: "no-store" });
-  } catch (e) {
-    console.log("FINNHUB FETCH ERROR:", e);
-    return NextResponse.json([] satisfies HistoryPoint[]);
+  if (
+    rawRange !== null &&
+    rawRange.trim() !== "" &&
+    !normalizeRange(rawRange)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid range. Use 1M, 3M, or 1Y." },
+      { status: 400 },
+    );
   }
 
-  if (!res.ok) {
-    console.log("FINNHUB HTTP NOT OK:", res.status);
-    return NextResponse.json([] satisfies HistoryPoint[]);
-  }
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - RANGE_DAYS[resolvedRange]);
 
-  let data: FinnhubCandles;
   try {
-    data = (await res.json()) as FinnhubCandles;
+    const results = await yahooFinance.historical(symbol, {
+      period1: from,
+      period2: to,
+      interval: "1d",
+    });
+
+    if (!Array.isArray(results) || results.length === 0) {
+      return NextResponse.json([] satisfies HistoryPoint[]);
+    }
+
+    const chartData: HistoryPoint[] = [];
+    for (const row of results) {
+      if (!row || typeof row !== "object") continue;
+      const close = (row as { close?: unknown }).close;
+      const d = (row as { date?: Date }).date;
+      if (close === null || close === undefined) continue;
+      const price = Number(close);
+      if (!Number.isFinite(price)) continue;
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) continue;
+      chartData.push({
+        date: d.toLocaleDateString("en-CA", {
+          month: "short",
+          day: "numeric",
+        }),
+        price,
+      });
+    }
+
+    return NextResponse.json(chartData);
   } catch {
     return NextResponse.json([] satisfies HistoryPoint[]);
   }
-
-  console.log("FINNHUB RESPONSE:", data);
-
-  if (data.s !== "ok") {
-    console.log("NO DATA FROM FINNHUB", data);
-    return NextResponse.json([] satisfies HistoryPoint[]);
-  }
-
-  if (!Array.isArray(data.c) || !Array.isArray(data.t)) {
-    return NextResponse.json([] satisfies HistoryPoint[]);
-  }
-
-  const c = data.c;
-  const t = data.t;
-  const chartData = t.map((time, i) => ({
-    date: new Date(time * 1000).toLocaleDateString(),
-    price: c[i],
-  }));
-
-  console.log("CHART DATA LENGTH:", chartData.length);
-
-  return NextResponse.json(chartData);
 }
