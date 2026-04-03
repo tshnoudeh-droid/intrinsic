@@ -11,12 +11,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { fetchStockHistory } from "@/lib/fetch-stock-history";
 import type { HistoryPoint, HistoryRange } from "@/lib/history-types";
 
 const RANGES: { key: HistoryRange; label: string }[] = [
-  { key: "1m", label: "1M" },
-  { key: "3m", label: "3M" },
-  { key: "1y", label: "1Y" },
+  { key: "1M", label: "1M" },
+  { key: "3M", label: "3M" },
+  { key: "1Y", label: "1Y" },
 ];
 
 type Props = {
@@ -24,21 +25,8 @@ type Props = {
   intrinsicValue: number | null;
 };
 
-function parseHistoryPayload(json: unknown): HistoryPoint[] {
-  if (!Array.isArray(json)) return [];
-  return json.filter(
-    (row): row is HistoryPoint =>
-      row !== null &&
-      typeof row === "object" &&
-      "date" in row &&
-      "price" in row &&
-      typeof (row as HistoryPoint).date === "string" &&
-      typeof (row as HistoryPoint).price === "number",
-  );
-}
-
 export function StockPriceChart({ symbol, intrinsicValue }: Props) {
-  const [range, setRange] = useState<HistoryRange>("1m");
+  const [range, setRange] = useState<HistoryRange>("1M");
   const [points, setPoints] = useState<HistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -46,32 +34,19 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    const run = async () => {
-      const res = await fetch(
-        `/api/history?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}`,
-      );
+    void (async () => {
+      setLoading(true);
+      setFetchError(false);
+      const result = await fetchStockHistory(symbol, range);
       if (cancelled) return;
-      if (!res.ok) {
+      if (!result.ok) {
         setPoints([]);
         setFetchError(true);
-        return;
+      } else {
+        setPoints(result.points);
       }
-      const json: unknown = await res.json();
-      if (cancelled) return;
-      setPoints(parseHistoryPayload(json));
-      setFetchError(false);
-    };
-
-    run()
-      .catch(() => {
-        if (!cancelled) {
-          setPoints([]);
-          setFetchError(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      if (!cancelled) setLoading(false);
+    })();
 
     return () => {
       cancelled = true;
@@ -80,7 +55,6 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
 
   const selectRange = useCallback((key: HistoryRange) => {
     if (key === range) return;
-    setLoading(true);
     setRange(key);
   }, [range]);
 
@@ -109,10 +83,10 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
             key={key}
             type="button"
             onClick={() => selectRange(key)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ease-out ${
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               range === key
                 ? "bg-intrinsic-ink text-intrinsic-light shadow-md shadow-intrinsic-ink/15 ring-1 ring-intrinsic-ink/10"
-                : "bg-intrinsic-light text-intrinsic-secondary shadow-sm ring-1 ring-intrinsic-secondary/15 hover:scale-[1.03] hover:bg-intrinsic-accent/60 hover:text-intrinsic-ink hover:shadow active:scale-100"
+                : "bg-intrinsic-light text-intrinsic-secondary shadow-sm ring-1 ring-intrinsic-secondary/15 hover:bg-intrinsic-accent/60 hover:text-intrinsic-ink"
             }`}
           >
             {label}
@@ -131,7 +105,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
           </p>
         ) : points.length === 0 ? (
           <p className="py-16 text-center text-sm text-intrinsic-secondary">
-            No chart data available for this range.
+            No chart data available
           </p>
         ) : (
           <div className="h-[260px] w-full min-w-0 sm:h-[300px]">

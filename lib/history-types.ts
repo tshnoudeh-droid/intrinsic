@@ -3,4 +3,5 @@ export type HistoryPoint = {
   price: number;
 };
 
-export type HistoryRange = "1m" | "3m" | "1y";
+/** Query param values for `/api/history` (Finnhub-style). */
+export type HistoryRange = "1M" | "3M" | "1Y";

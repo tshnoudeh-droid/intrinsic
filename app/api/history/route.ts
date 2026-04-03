@@ -5,13 +5,14 @@ export const dynamic = "force-dynamic";
 
 const FINNHUB_CANDLE = "https://finnhub.io/api/v1/stock/candle";
 
-const RANGE_DAYS: Record<HistoryRange, number> = {
-  "1m": 31,
-  "3m": 92,
-  "1y": 365,
-};
+const SECONDS_PER_DAY = 24 * 60 * 60;
 
-const VALID_RANGES = new Set<string>(["1m", "3m", "1y"]);
+/** Range window in seconds: 30 / 90 / 365 calendar days. */
+const RANGE_SECONDS: Record<HistoryRange, number> = {
+  "1M": 30 * SECONDS_PER_DAY,
+  "3M": 90 * SECONDS_PER_DAY,
+  "1Y": 365 * SECONDS_PER_DAY,
+};
 
 type FinnhubCandles = {
   s?: string;
@@ -19,13 +20,27 @@ type FinnhubCandles = {
   t?: number[];
 };
 
-function formatDateFromUnix(seconds: number): string {
-  return new Date(seconds * 1000).toISOString().slice(0, 10);
+function normalizeRange(param: string | null): HistoryRange | null {
+  if (param === null || param.trim() === "") return null;
+  const u = param.trim().toUpperCase();
+  if (u === "1M" || u === "3M" || u === "1Y") {
+    return u as HistoryRange;
+  }
+  return null;
+}
+
+/** Readable label for charts, e.g. "Jan 12" (UTC, matches Finnhub candle day). */
+function formatChartDate(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
-  const rangeParam = request.nextUrl.searchParams.get("range")?.trim() ?? "1m";
+  const rawRange = request.nextUrl.searchParams.get("range");
 
   if (!symbol) {
     return NextResponse.json(
@@ -34,7 +49,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const range = (VALID_RANGES.has(rangeParam) ? rangeParam : "1m") as HistoryRange;
+  let resolvedRange: HistoryRange;
+  if (rawRange === null || rawRange.trim() === "") {
+    resolvedRange = "1M";
+  } else {
+    const parsed = normalizeRange(rawRange);
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Invalid range. Use 1M, 3M, or 1Y." },
+        { status: 400 },
+      );
+    }
+    resolvedRange = parsed;
+  }
 
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) {
@@ -44,14 +71,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const nowSec = Math.floor(Date.now() / 1000);
-  const fromSec = nowSec - RANGE_DAYS[range] * 24 * 60 * 60;
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - RANGE_SECONDS[resolvedRange];
 
   const url = new URL(FINNHUB_CANDLE);
   url.searchParams.set("symbol", symbol);
   url.searchParams.set("resolution", "D");
-  url.searchParams.set("from", String(fromSec));
-  url.searchParams.set("to", String(nowSec));
+  url.searchParams.set("from", String(from));
+  url.searchParams.set("to", String(to));
   url.searchParams.set("token", apiKey);
 
   try {
@@ -74,7 +101,7 @@ export async function GET(request: NextRequest) {
       const price = Number(close);
       if (!Number.isFinite(price)) continue;
       out.push({
-        date: formatDateFromUnix(ts),
+        date: formatChartDate(ts),
         price,
       });
     }
