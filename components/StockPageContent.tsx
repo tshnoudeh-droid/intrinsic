@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import { calculateDCF } from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
@@ -63,6 +64,11 @@ export function StockPageContent({ symbol }: Props) {
   const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [growthRate, setGrowthRate] = useState(0.05);
+  const [discountRate, setDiscountRate] = useState(0.09);
+  const [terminalGrowth, setTerminalGrowth] = useState(0.025);
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -79,7 +85,16 @@ export function StockPageContent({ symbol }: Props) {
         }
 
         if (isStockDetailPayload(json)) {
+          if (cancelled) return;
           setData(json);
+          if (
+            json.cashFlowUsed !== null &&
+            json.sharesOutstanding !== null
+          ) {
+            setGrowthRate(json.growthRateUsed);
+            setDiscountRate(0.09);
+            setTerminalGrowth(0.025);
+          }
           setLoadError(false);
         } else {
           setData(null);
@@ -101,28 +116,55 @@ export function StockPageContent({ symbol }: Props) {
     };
   }, [symbol]);
 
-  const valuation = useMemo(() => {
-    if (!data || data.intrinsicValue === null) return null;
-    const margin = marginOfSafetyPercent(data.intrinsicValue, data.price);
-    if (margin === null) return null;
-    return {
-      margin,
-      label: valuationLabelFromMargin(margin),
-    };
-  }, [data]);
+  const canValuate =
+    data !== null &&
+    data.cashFlowUsed !== null &&
+    data.sharesOutstanding !== null;
+
+  const liveValuation = useMemo(() => {
+    if (
+      !data ||
+      data.cashFlowUsed === null ||
+      data.sharesOutstanding === null
+    ) {
+      return {
+        intrinsicValue: null as number | null,
+        margin: null as number | null,
+        label: null as "Undervalued" | "Fair" | "Overvalued" | null,
+      };
+    }
+    const intrinsicValue = calculateDCF({
+      cashFlow: data.cashFlowUsed,
+      sharesOutstanding: data.sharesOutstanding,
+      growthRate,
+      discountRate,
+      terminalGrowthRate: terminalGrowth,
+    });
+    const margin =
+      intrinsicValue !== null
+        ? marginOfSafetyPercent(intrinsicValue, data.price)
+        : null;
+    const label =
+      margin !== null ? valuationLabelFromMargin(margin) : null;
+    return { intrinsicValue, margin, label };
+  }, [data, growthRate, discountRate, terminalGrowth]);
 
   const explanationText = useMemo(() => {
-    if (!valuation || !data) return null;
-    return buildValuationExplanation(valuation.margin, data.growthRateUsed);
-  }, [valuation, data]);
+    if (!data || liveValuation.margin === null) return null;
+    return buildValuationExplanation(
+      liveValuation.margin,
+      growthRate,
+      discountRate,
+    );
+  }, [data, liveValuation.margin, growthRate, discountRate]);
 
   const unreliableEstimate = useMemo(() => {
-    if (!data || data.intrinsicValue === null) return false;
+    if (!data || liveValuation.intrinsicValue === null) return false;
     return isIntrinsicEstimatePotentiallyUnreliable(
-      data.intrinsicValue,
+      liveValuation.intrinsicValue,
       data.price,
     );
-  }, [data]);
+  }, [data, liveValuation.intrinsicValue]);
 
   return (
     <div className="flex w-full flex-1 flex-col items-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
@@ -160,7 +202,7 @@ export function StockPageContent({ symbol }: Props) {
               </p>
             </header>
 
-            {data.intrinsicValue === null ? (
+            {!canValuate ? (
               <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
                 <p className="font-medium text-intrinsic-ink">
                   {STOCK_PAGE_COPY.valuationUnavailableTitle}
@@ -177,7 +219,9 @@ export function StockPageContent({ symbol }: Props) {
                       Intrinsic value
                     </p>
                     <p className="mt-1 text-3xl font-semibold tabular-nums text-intrinsic-ink sm:text-4xl">
-                      {formatCurrencyDisplay(data.intrinsicValue)}
+                      {liveValuation.intrinsicValue !== null
+                        ? formatCurrencyDisplay(liveValuation.intrinsicValue)
+                        : "—"}
                     </p>
                     {unreliableEstimate ? (
                       <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
@@ -186,7 +230,7 @@ export function StockPageContent({ symbol }: Props) {
                     ) : null}
                   </div>
 
-                  {valuation ? (
+                  {liveValuation.margin !== null && liveValuation.label ? (
                     <>
                       <div className="h-px bg-intrinsic-secondary/12" />
                       <div>
@@ -195,14 +239,14 @@ export function StockPageContent({ symbol }: Props) {
                         </p>
                         <p
                           className={`mt-1 text-2xl font-semibold tabular-nums sm:text-3xl ${
-                            valuation.label === "Undervalued"
+                            liveValuation.label === "Undervalued"
                               ? "text-emerald-900/85"
-                              : valuation.label === "Overvalued"
+                              : liveValuation.label === "Overvalued"
                                 ? "text-rose-900/85"
                                 : "text-intrinsic-ink"
                           }`}
                         >
-                          {formatPercentOneDecimal(valuation.margin)}
+                          {formatPercentOneDecimal(liveValuation.margin)}
                         </p>
                       </div>
                       <div>
@@ -210,9 +254,9 @@ export function StockPageContent({ symbol }: Props) {
                           Valuation
                         </p>
                         <p
-                          className={`mt-3 inline-block rounded-full px-4 py-2 text-sm font-semibold sm:text-base ${valuationLabelClass(valuation.label)}`}
+                          className={`mt-3 inline-block rounded-full px-4 py-2 text-sm font-semibold sm:text-base ${valuationLabelClass(liveValuation.label)}`}
                         >
-                          {valuation.label}
+                          {liveValuation.label}
                         </p>
                       </div>
                     </>
@@ -221,7 +265,115 @@ export function StockPageContent({ symbol }: Props) {
               </section>
             )}
 
-            {data.intrinsicValue !== null && explanationText ? (
+            {canValuate ? (
+              <div className="border-b border-intrinsic-secondary/15 pb-1">
+                <button
+                  type="button"
+                  onClick={() => setAssumptionsOpen((o) => !o)}
+                  aria-expanded={assumptionsOpen}
+                  className="flex w-full items-center justify-between gap-3 py-2 text-left text-sm text-intrinsic-secondary transition-colors hover:text-intrinsic-ink"
+                >
+                  <span>Adjust assumptions</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-4 w-4 shrink-0 text-intrinsic-secondary transition-transform duration-200 ${
+                      assumptionsOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                {assumptionsOpen ? (
+                  <div className="mt-4 space-y-6 border-t border-intrinsic-secondary/10 pt-5">
+                    <div>
+                      <div className="mb-2 flex justify-between gap-4 text-sm">
+                        <span className="text-intrinsic-secondary">
+                          Growth rate
+                        </span>
+                        <span className="tabular-nums text-intrinsic-ink/90">
+                          {formatPercentOneDecimal(growthRate * 100)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        className="intrinsic-assumption-range"
+                        min={0.02}
+                        max={0.4}
+                        step={0.005}
+                        value={growthRate}
+                        onChange={(e) =>
+                          setGrowthRate(Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-2 flex justify-between gap-4 text-sm">
+                        <span className="text-intrinsic-secondary">
+                          Discount rate
+                        </span>
+                        <span className="tabular-nums text-intrinsic-ink/90">
+                          {formatPercentOneDecimal(discountRate * 100)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        className="intrinsic-assumption-range"
+                        min={0.05}
+                        max={0.15}
+                        step={0.005}
+                        value={discountRate}
+                        onChange={(e) =>
+                          setDiscountRate(Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-2 flex justify-between gap-4 text-sm">
+                        <span className="text-intrinsic-secondary">
+                          Terminal growth
+                        </span>
+                        <span className="tabular-nums text-intrinsic-ink/90">
+                          {formatPercentOneDecimal(terminalGrowth * 100)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        className="intrinsic-assumption-range"
+                        min={0.01}
+                        max={0.04}
+                        step={0.005}
+                        value={terminalGrowth}
+                        onChange={(e) =>
+                          setTerminalGrowth(Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGrowthRate(data.growthRateUsed);
+                          setDiscountRate(0.09);
+                          setTerminalGrowth(0.025);
+                        }}
+                        className="text-xs text-intrinsic-secondary/90 underline-offset-2 hover:text-intrinsic-ink hover:underline"
+                      >
+                        Reset to defaults
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {canValuate && explanationText ? (
               <div className="flex flex-col gap-3">
                 <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
                   {STOCK_PAGE_COPY.explanationSectionTitle}
@@ -237,48 +389,50 @@ export function StockPageContent({ symbol }: Props) {
               </div>
             ) : null}
 
-            <section
-              className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light/90 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
-              aria-label={STOCK_PAGE_COPY.modelAssumptionsTitle}
-            >
-              <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
-                {STOCK_PAGE_COPY.modelAssumptionsTitle}
-              </p>
-              <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
-                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                  <dt>Growth rate</dt>
-                  <dd className="tabular-nums text-intrinsic-ink/90">
-                    {formatPercentOneDecimal(data.growthRateUsed * 100)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                  <dt>Discount rate</dt>
-                  <dd className="tabular-nums text-intrinsic-ink/90">
-                    {formatPercentOneDecimal(DCF_ASSUMPTIONS.discountRate * 100)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                  <dt>Terminal growth</dt>
-                  <dd className="tabular-nums text-intrinsic-ink/90">
-                    {formatPercentOneDecimal(
-                      DCF_ASSUMPTIONS.terminalGrowthRate * 100,
-                    )}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                  <dt>Projection period</dt>
-                  <dd className="tabular-nums text-intrinsic-ink/90">
-                    {DCF_ASSUMPTIONS.projectionYears} years
-                  </dd>
-                </div>
-              </dl>
-            </section>
+            {canValuate ? (
+              <section
+                className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light/90 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
+                aria-label={STOCK_PAGE_COPY.modelAssumptionsTitle}
+              >
+                <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                  {STOCK_PAGE_COPY.modelAssumptionsTitle}
+                </p>
+                <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
+                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                    <dt>Growth rate</dt>
+                    <dd className="tabular-nums text-intrinsic-ink/90">
+                      {formatPercentOneDecimal(growthRate * 100)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                    <dt>Discount rate</dt>
+                    <dd className="tabular-nums text-intrinsic-ink/90">
+                      {formatPercentOneDecimal(discountRate * 100)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                    <dt>Terminal growth</dt>
+                    <dd className="tabular-nums text-intrinsic-ink/90">
+                      {formatPercentOneDecimal(terminalGrowth * 100)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
+                    <dt>Projection period</dt>
+                    <dd className="tabular-nums text-intrinsic-ink/90">
+                      {DCF_ASSUMPTIONS.projectionYears} years
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
 
             <section className="min-w-0">
               <StockPriceChart
                 key={data.symbol}
                 symbol={data.symbol}
-                intrinsicValue={data.intrinsicValue}
+                intrinsicValue={
+                  canValuate ? liveValuation.intrinsicValue : null
+                }
               />
             </section>
 

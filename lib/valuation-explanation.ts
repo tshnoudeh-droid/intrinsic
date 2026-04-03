@@ -1,14 +1,14 @@
-import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { VALUATION_MARGIN_BAND_PCT } from "@/lib/valuation-label";
 
 /**
- * Short narrative tied to margin-of-safety bands and published DCF assumptions.
+ * Short narrative tied to margin-of-safety bands and DCF assumptions.
  */
 export function buildValuationExplanation(
   marginOfSafetyPercent: number,
   growthRateUsed: number,
+  discountRate: number,
 ): string {
-  const discountPct = DCF_ASSUMPTIONS.discountRate * 100;
+  const discountPct = (discountRate * 100).toFixed(1);
 
   let verdict: string;
   if (marginOfSafetyPercent > VALUATION_MARGIN_BAND_PCT) {
