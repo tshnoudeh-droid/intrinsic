@@ -4,7 +4,8 @@ import {
   computeFcfFromOperatingAndCapEx,
   extractNetIncomeFromFinancialsReported,
   extractOperatingCashFlowAndCapExFromReported,
-  extractSharesOutstandingFromBasicMetric,
+  parseFinnhubNumber,
+  resolveSharesOutstanding,
 } from "@/lib/finnhub-financial-extract";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
 import {
@@ -26,6 +27,7 @@ type FinnhubProfile2 = {
   name?: string;
   ticker?: string;
   shareOutstanding?: number;
+  marketCapitalization?: number;
 };
 
 function finnhubUrl(path: string, symbol: string, token: string): string {
@@ -113,11 +115,13 @@ export async function GET(request: NextRequest) {
     const price = priceRaw;
 
     let name = symbol;
+    let marketCap: number | null = null;
     if (profileRes.ok) {
       try {
         const profile = (await profileRes.json()) as FinnhubProfile2;
         const n = profile.name?.trim();
         if (n) name = n;
+        marketCap = parseFinnhubNumber(profile.marketCapitalization);
       } catch {
         /* keep symbol as name */
       }
@@ -126,13 +130,19 @@ export async function GET(request: NextRequest) {
     const financialsJson = await safeJson(financialsRes);
     const metricJson = await safeJson(metricRes);
 
-    // TEMPORARY: raw Finnhub payloads (set STOCK_DEBUG_FINNHUB=1 to log in any environment)
+    // TEMPORARY: inspect /stock/metric (set STOCK_DEBUG_FINNHUB=1 for any env)
     if (
       process.env.NODE_ENV === "development" ||
       process.env.STOCK_DEBUG_FINNHUB === "1"
     ) {
       console.log("[stock debug] financialsReported:", JSON.stringify(financialsJson));
-      console.log("[stock debug] basicFinancials (metric all):", JSON.stringify(metricJson));
+      console.log("[stock debug] /stock/metric full response:", JSON.stringify(metricJson));
+      if (metricJson && typeof metricJson === "object") {
+        const m = (metricJson as { metric?: unknown }).metric;
+        if (m && typeof m === "object") {
+          console.log("[stock debug] metric keys:", Object.keys(m as object));
+        }
+      }
     }
 
     const { operatingCashFlow, capitalExpenditures } =
@@ -147,7 +157,7 @@ export async function GET(request: NextRequest) {
     const cashFlowSelected = fcf ?? earnings;
     const cashFlow = sanitizeCashFlowForValuation(cashFlowSelected);
 
-    const sharesRaw = extractSharesOutstandingFromBasicMetric(metricJson);
+    const sharesRaw = resolveSharesOutstanding(metricJson, marketCap, price);
     const sharesOutstanding = sanitizeSharesOutstanding(sharesRaw);
 
     const intrinsicValue = calculateIntrinsicValue({

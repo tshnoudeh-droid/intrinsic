@@ -128,18 +128,76 @@ function getMetricMap(payload: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Shares outstanding from `/stock/metric?metric=all`: Finnhub reports this figure in millions.
- * Converts to an actual share count. No fallback to profile or other fields.
+ * Finnhub `metric` share fields are inconsistent: sometimes millions, sometimes full count.
+ * Values ≥ 1e8 are treated as already a full share count; smaller values are × 1M (millions).
+ */
+function sharesFromMetricMillionsOrFull(raw: number | null): number | null {
+  if (raw === null || !Number.isFinite(raw) || raw <= 0) return null;
+  if (raw >= 1e8) return raw;
+  return raw * 1_000_000;
+}
+
+/**
+ * Try A → B → C on `/stock/metric?metric=all` under `metric`.
  */
 export function extractSharesOutstandingFromBasicMetric(
   payload: unknown,
 ): number | null {
   const metric = getMetricMap(payload);
   if (!metric) return null;
-  const raw =
-    parseFinnhubNumber(metric.sharesOutstanding) ??
-    parseFinnhubNumber(metric.shareOutstanding);
-  if (raw === null) return null;
-  const shares = raw * 1_000_000;
-  return Number.isFinite(shares) ? shares : null;
+
+  const a = sharesFromMetricMillionsOrFull(
+    parseFinnhubNumber(metric.sharesOutstanding),
+  );
+  if (a !== null) return a;
+
+  const b = sharesFromMetricMillionsOrFull(
+    parseFinnhubNumber(metric.shareOutstanding),
+  );
+  if (b !== null) return b;
+
+  const c = sharesFromMetricMillionsOrFull(parseFinnhubNumber(metric.shares));
+  if (c !== null) return c;
+
+  return null;
+}
+
+/**
+ * Finnhub `profile2.marketCapitalization` is usually **millions of USD**; very large values may already be full USD.
+ */
+function marketCapitalizationToUsd(raw: number): number | null {
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  if (raw >= 1e9) return raw;
+  return raw * 1_000_000;
+}
+
+/**
+ * Implied shares: market cap (USD) ÷ last price.
+ */
+export function extractSharesOutstandingFromMarketCap(
+  marketCap: number | null,
+  price: number,
+): number | null {
+  if (marketCap === null || !Number.isFinite(marketCap) || marketCap <= 0) {
+    return null;
+  }
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const capUsd = marketCapitalizationToUsd(marketCap);
+  if (capUsd === null) return null;
+  const implied = capUsd / price;
+  if (!Number.isFinite(implied) || implied <= 0) return null;
+  return implied;
+}
+
+/**
+ * Resolve share count: metric (A→B→C), then marketCap / price.
+ */
+export function resolveSharesOutstanding(
+  metricPayload: unknown,
+  marketCap: number | null,
+  price: number,
+): number | null {
+  const fromMetric = extractSharesOutstandingFromBasicMetric(metricPayload);
+  if (fromMetric !== null && fromMetric > 0) return fromMetric;
+  return extractSharesOutstandingFromMarketCap(marketCap, price);
 }

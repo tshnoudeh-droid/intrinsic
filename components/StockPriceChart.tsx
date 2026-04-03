@@ -95,6 +95,11 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light p-4 shadow-md shadow-black/[0.04] ring-1 ring-black/[0.03] sm:rounded-3xl sm:p-6">
+        {!loading ? (
+          <p className="mb-3 text-center text-xs tabular-nums text-intrinsic-secondary/90">
+            Data points: {points.length}
+          </p>
+        ) : null}
         {loading ? (
           <p className="py-16 text-center text-sm text-intrinsic-secondary">
             Loading chart...

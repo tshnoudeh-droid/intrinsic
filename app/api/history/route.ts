@@ -5,13 +5,11 @@ export const dynamic = "force-dynamic";
 
 const FINNHUB_CANDLE = "https://finnhub.io/api/v1/stock/candle";
 
-const SECONDS_PER_DAY = 24 * 60 * 60;
-
-/** Range window in seconds: 30 / 90 / 365 calendar days. */
-const RANGE_SECONDS: Record<HistoryRange, number> = {
-  "1M": 30 * SECONDS_PER_DAY,
-  "3M": 90 * SECONDS_PER_DAY,
-  "1Y": 365 * SECONDS_PER_DAY,
+/** Days per range; `from = to - rangeInDays * 86400` with `to` in seconds. */
+const RANGE_DAYS: Record<HistoryRange, number> = {
+  "1M": 30,
+  "3M": 90,
+  "1Y": 365,
 };
 
 type FinnhubCandles = {
@@ -29,13 +27,64 @@ function normalizeRange(param: string | null): HistoryRange | null {
   return null;
 }
 
-/** Readable label for charts, e.g. "Jan 12" (UTC, matches Finnhub candle day). */
-function formatChartDate(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+const DEBUG_HISTORY =
+  process.env.NODE_ENV === "development" ||
+  process.env.STOCK_DEBUG_FINNHUB === "1" ||
+  process.env.HISTORY_DEBUG_FINNHUB === "1";
+
+/**
+ * US listings use plain tickers (e.g. AAPL); many TSX names need `.TO`.
+ * If the symbol has no exchange suffix, try the raw symbol first, then `SYMBOL.TO`.
+ */
+function candleSymbolVariants(symbol: string): string[] {
+  const s = symbol.trim().toUpperCase();
+  if (!s) return [];
+  if (s.includes(".")) return [s];
+  return [s, `${s}.TO`];
+}
+
+function mapCandlesToPoints(data: FinnhubCandles): HistoryPoint[] {
+  const c = data.c;
+  const t = data.t;
+  if (!Array.isArray(c) || !Array.isArray(t) || c.length === 0) {
+    return [];
+  }
+  const n = Math.min(t.length, c.length);
+  const out: HistoryPoint[] = [];
+  for (let i = 0; i < n; i++) {
+    const time = t[i];
+    const close = c[i];
+    if (typeof time !== "number" || typeof close !== "number") continue;
+    const price = Number(close);
+    if (!Number.isFinite(price)) continue;
+    out.push({
+      date: new Date(time * 1000).toLocaleDateString(),
+      price,
+    });
+  }
+  return out;
+}
+
+async function fetchCandlesForSymbol(
+  symbol: string,
+  fromSec: number,
+  toSec: number,
+  token: string,
+): Promise<FinnhubCandles | null> {
+  const url = new URL(FINNHUB_CANDLE);
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("resolution", "D");
+  url.searchParams.set("from", String(fromSec));
+  url.searchParams.set("to", String(toSec));
+  url.searchParams.set("token", token);
+
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as FinnhubCandles;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -72,42 +121,56 @@ export async function GET(request: NextRequest) {
   }
 
   const to = Math.floor(Date.now() / 1000);
-  const from = to - RANGE_SECONDS[resolvedRange];
+  const rangeInDays = RANGE_DAYS[resolvedRange];
+  const from = to - rangeInDays * 24 * 60 * 60;
 
-  const url = new URL(FINNHUB_CANDLE);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("resolution", "D");
-  url.searchParams.set("from", String(from));
-  url.searchParams.set("to", String(to));
-  url.searchParams.set("token", apiKey);
+  const variants = candleSymbolVariants(symbol);
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    if (!res.ok) {
-      return NextResponse.json([] satisfies HistoryPoint[]);
+  for (const sym of variants) {
+    const data = await fetchCandlesForSymbol(sym, from, to, apiKey);
+    if (data === null) {
+      if (DEBUG_HISTORY) {
+        console.log(`[history debug] fetch failed for symbol=${sym}`);
+      }
+      continue;
     }
 
-    const data = (await res.json()) as FinnhubCandles;
-    if (data.s !== "ok" || !Array.isArray(data.t) || !Array.isArray(data.c)) {
-      return NextResponse.json([] satisfies HistoryPoint[]);
+    const status = data.s;
+    const cLen = Array.isArray(data.c) ? data.c.length : 0;
+    const tLen = Array.isArray(data.t) ? data.t.length : 0;
+
+    if (DEBUG_HISTORY) {
+      console.log(
+        `[history debug] symbol=${sym} s=${status} c.length=${cLen} t.length=${tLen}`,
+      );
     }
 
-    const out: HistoryPoint[] = [];
-    const n = Math.min(data.t.length, data.c.length);
-    for (let i = 0; i < n; i++) {
-      const ts = data.t[i];
-      const close = data.c[i];
-      if (typeof ts !== "number" || typeof close !== "number") continue;
-      const price = Number(close);
-      if (!Number.isFinite(price)) continue;
-      out.push({
-        date: formatChartDate(ts),
-        price,
-      });
+    if (status !== "ok") {
+      if (DEBUG_HISTORY) {
+        console.log(
+          `[history debug] non-ok candle status for ${sym}:`,
+          status ?? "(missing)",
+        );
+      }
+      continue;
     }
 
-    return NextResponse.json(out);
-  } catch {
-    return NextResponse.json([] satisfies HistoryPoint[]);
+    if (!Array.isArray(data.c) || data.c.length === 0) {
+      if (DEBUG_HISTORY) {
+        console.log(`[history debug] empty c[] for ${sym}, skipping`);
+      }
+      continue;
+    }
+
+    if (!Array.isArray(data.t) || data.t.length === 0) {
+      continue;
+    }
+
+    const points = mapCandlesToPoints(data);
+    if (points.length > 0) {
+      return NextResponse.json(points);
+    }
   }
+
+  return NextResponse.json([] satisfies HistoryPoint[]);
 }
