@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateIntrinsicValue } from "@/lib/calculate-intrinsic-value";
 import {
-  extractFcfFromBasicFinancials,
-  extractLatestAnnualFcfFromFinancialsReported,
-  extractNetIncomeFromBasicFinancials,
-  extractSharesOutstanding,
-  parseFinnhubNumber,
+  computeFcfFromOperatingAndCapEx,
+  extractNetIncomeFromFinancialsReported,
+  extractOperatingCashFlowAndCapExFromReported,
+  extractSharesOutstandingFromBasicMetric,
 } from "@/lib/finnhub-financial-extract";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
 import {
@@ -114,57 +113,42 @@ export async function GET(request: NextRequest) {
     const price = priceRaw;
 
     let name = symbol;
-    let sharesFromProfile: number | null = null;
     if (profileRes.ok) {
       try {
         const profile = (await profileRes.json()) as FinnhubProfile2;
         const n = profile.name?.trim();
         if (n) name = n;
-        sharesFromProfile = sanitizeSharesOutstanding(
-          parseFinnhubNumber(profile.shareOutstanding),
-        );
       } catch {
-        /* keep defaults */
+        /* keep symbol as name */
       }
     }
 
     const financialsJson = await safeJson(financialsRes);
     const metricJson = await safeJson(metricRes);
 
-    let fcf: number | null = null;
-    try {
-      fcf = extractLatestAnnualFcfFromFinancialsReported(financialsJson);
-    } catch {
-      fcf = null;
+    // TEMPORARY: raw Finnhub payloads (set STOCK_DEBUG_FINNHUB=1 to log in any environment)
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.STOCK_DEBUG_FINNHUB === "1"
+    ) {
+      console.log("[stock debug] financialsReported:", JSON.stringify(financialsJson));
+      console.log("[stock debug] basicFinancials (metric all):", JSON.stringify(metricJson));
     }
 
-    try {
-      if (fcf === null) {
-        fcf = extractFcfFromBasicFinancials(metricJson);
-      }
-    } catch {
-      /* keep fcf */
-    }
+    const { operatingCashFlow, capitalExpenditures } =
+      extractOperatingCashFlowAndCapExFromReported(financialsJson);
+    const fcf = computeFcfFromOperatingAndCapEx(
+      operatingCashFlow,
+      capitalExpenditures,
+    );
 
-    let earnings: number | null = null;
-    try {
-      earnings = extractNetIncomeFromBasicFinancials(metricJson);
-    } catch {
-      earnings = null;
-    }
+    const earnings = extractNetIncomeFromFinancialsReported(financialsJson);
 
-    let sharesOutstanding: number | null = null;
-    try {
-      sharesOutstanding = sanitizeSharesOutstanding(
-        extractSharesOutstanding(metricJson, sharesFromProfile),
-      );
-    } catch {
-      sharesOutstanding = sharesFromProfile;
-    }
+    const cashFlowSelected = fcf ?? earnings;
+    const cashFlow = sanitizeCashFlowForValuation(cashFlowSelected);
 
-    const cashFlow =
-      sanitizeCashFlowForValuation(fcf) ??
-      sanitizeCashFlowForValuation(earnings);
+    const sharesRaw = extractSharesOutstandingFromBasicMetric(metricJson);
+    const sharesOutstanding = sanitizeSharesOutstanding(sharesRaw);
 
     const intrinsicValue = calculateIntrinsicValue({
       cashFlow,
@@ -176,6 +160,8 @@ export async function GET(request: NextRequest) {
       name,
       price,
       intrinsicValue,
+      cashFlowUsed: cashFlow,
+      sharesOutstanding,
     };
 
     return NextResponse.json(payload);

@@ -7,20 +7,13 @@ export function parseFinnhubNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-type ReportedRow = Record<string, unknown>;
+type ReportBlock = Record<string, unknown>;
 
-/**
- * Finnhub `/stock/financials-reported` returns `data[]` with nested `report.cf`
- * line items. We take the latest annual filing and look for a Free Cash Flow line.
- */
-export function extractLatestAnnualFcfFromFinancialsReported(
-  payload: unknown,
-): number | null {
+function getLatestAnnualReport(payload: unknown): ReportBlock | null {
   if (!payload || typeof payload !== "object") return null;
   const data = (payload as { data?: unknown }).data;
   if (!Array.isArray(data) || data.length === 0) return null;
 
-  // Prefer full-year filings; omit Q1–Q3 when quarter is present.
   const annual = data.filter((row) => {
     if (!row || typeof row !== "object") return false;
     const q = (row as { quarter?: unknown }).quarter;
@@ -30,7 +23,6 @@ export function extractLatestAnnualFcfFromFinancialsReported(
   });
 
   const rows = annual.length > 0 ? annual : data;
-
   const sorted = [...rows].sort((a, b) => {
     const ya = (a as { year?: unknown }).year;
     const yb = (b as { year?: unknown }).year;
@@ -42,143 +34,90 @@ export function extractLatestAnnualFcfFromFinancialsReported(
     return db.localeCompare(da);
   });
 
-  for (const filing of sorted) {
-    if (!filing || typeof filing !== "object") continue;
-    const report = (filing as { report?: unknown }).report;
-    const n = fcfFromReportBlock(report);
-    if (n !== null) return n;
-  }
-
-  return null;
-}
-
-function fcfFromReportBlock(report: unknown): number | null {
+  const filing = sorted[0];
+  if (!filing || typeof filing !== "object") return null;
+  const report = (filing as { report?: unknown }).report;
   if (!report || typeof report !== "object") return null;
-  const r = report as Record<string, unknown>;
-  const cf = r.cf;
-  return scanCfLike(cf);
+  return report as ReportBlock;
 }
 
-function scanCfLike(cf: unknown): number | null {
-  if (Array.isArray(cf)) {
-    for (const row of cf) {
+/**
+ * Find first line in a statement section whose `concept` contains one of the substrings (order matters).
+ */
+function findValueByConceptHints(section: unknown, hints: string[]): number | null {
+  if (!Array.isArray(section)) return null;
+  for (const hint of hints) {
+    const needle = hint.toLowerCase();
+    for (const row of section) {
       if (!row || typeof row !== "object") continue;
-      const o = row as ReportedRow;
-      const label = String(o.label ?? o.concept ?? o.name ?? "").toLowerCase();
-      const isFcf =
-        (label.includes("free") &&
-          label.includes("cash") &&
-          label.includes("flow")) ||
-        /free\s*cash\s*flow/i.test(label);
-      if (!isFcf) continue;
-      const v = parseFinnhubNumber(
-        o.value ?? o.amount ?? o.val ?? o.v ?? o.number,
-      );
+      const o = row as Record<string, unknown>;
+      const concept = String(o.concept ?? "").toLowerCase();
+      if (!concept.includes(needle)) continue;
+      const v = parseFinnhubNumber(o.value ?? o.v ?? o.amount);
       if (v !== null) return v;
     }
-    return null;
   }
-
-  if (cf && typeof cf === "object") {
-    for (const v of Object.values(cf)) {
-      const n = scanCfLike(v);
-      if (n !== null) return n;
-    }
-  }
-
   return null;
 }
 
 /**
- * `/stock/metric?metric=all` returns `metric` (snapshot) and `series` (annual/quarterly).
- * We prefer the latest annual point from `series` when present, else fall back to `metric`.
+ * Operating cash flow and capital expenditures from latest annual `financials-reported` filing (`report.cf`).
+ * Hints follow Finnhub/US-GAAP concept ids (e.g. ...CashFlowFromOperatingActivities, ...CapitalExpenditures).
  */
-export function extractNetIncomeFromBasicFinancials(
+export function extractOperatingCashFlowAndCapExFromReported(
   payload: unknown,
-): number | null {
-  const fromSeries = latestAnnualSeriesValue(payload, [
-    "netIncome",
-    "netIncomeCommonStockholders",
-    "netIncomeApplicableToCommonShares",
+): { operatingCashFlow: number | null; capitalExpenditures: number | null } {
+  const report = getLatestAnnualReport(payload);
+  if (!report) {
+    return { operatingCashFlow: null, capitalExpenditures: null };
+  }
+  const cf = report.cf;
+  const operatingCashFlow = findValueByConceptHints(cf, [
+    "cashflowfromoperatingactivities",
+    "netcashprovidedbyusedinoperatingactivities",
   ]);
-  if (fromSeries !== null) return fromSeries;
-
-  const metric = getMetricMap(payload);
-  if (!metric) return null;
-
-  const preferredKeys = [
-    "netIncome",
-    "netIncomeCommonStockholders",
-    "netIncomeApplicableToCommonShares",
-  ];
-  for (const key of preferredKeys) {
-    const v = parseFinnhubNumber(metric[key]);
-    if (v !== null) return v;
-  }
-
-  for (const [key, val] of Object.entries(metric)) {
-    if (!/netincome/i.test(key)) continue;
-    if (/pershare|margin|growth|ttm$/i.test(key)) continue;
-    const v = parseFinnhubNumber(val);
-    if (v !== null) return v;
-  }
-
-  return null;
+  const capitalExpenditures = findValueByConceptHints(cf, [
+    "capitalexpenditures",
+    "paymentstoacquirepropertyplantandequipment",
+  ]);
+  return { operatingCashFlow, capitalExpenditures };
 }
 
-export function extractFcfFromBasicFinancials(payload: unknown): number | null {
-  const fromSeries = latestAnnualSeriesValue(payload, ["freeCashFlow"]);
-  if (fromSeries !== null) return fromSeries;
-
-  const metric = getMetricMap(payload);
-  if (!metric) return null;
-
-  const keys = [
-    "freeCashFlow",
-    "freeCashFlowTTM",
-    "freeCashFlowAnnual",
-    "fcf",
-  ];
-  for (const key of keys) {
-    const v = parseFinnhubNumber(metric[key]);
-    if (v !== null) return v;
+/**
+ * FCF = operating cash flow − capital expenditures (per filing line items).
+ * Returns null if either input is missing.
+ */
+export function computeFcfFromOperatingAndCapEx(
+  operatingCashFlow: number | null,
+  capitalExpenditures: number | null,
+): number | null {
+  if (operatingCashFlow === null || capitalExpenditures === null) return null;
+  if (!Number.isFinite(operatingCashFlow) || !Number.isFinite(capitalExpenditures)) {
+    return null;
   }
-
-  for (const [key, val] of Object.entries(metric)) {
-    if (!/^freeCashFlow/i.test(key) && !/^fcf$/i.test(key)) continue;
-    const v = parseFinnhubNumber(val);
-    if (v !== null) return v;
-  }
-
-  return null;
+  const fcf = operatingCashFlow - capitalExpenditures;
+  return Number.isFinite(fcf) ? fcf : null;
 }
 
-export function extractSharesOutstanding(
-  basicPayload: unknown,
-  profileShareOutstanding: number | null,
-): number | null {
-  const fromSeries = latestAnnualSeriesValue(basicPayload, [
-    "shareOutstanding",
-    "weightedAverageShsOut",
-    "weightedAverageShsOutDil",
-  ]);
-  if (fromSeries !== null) return fromSeries;
+/**
+ * Net income from latest annual income statement (`report.ic`), excluding per-share / EPS lines.
+ */
+export function extractNetIncomeFromFinancialsReported(payload: unknown): number | null {
+  const report = getLatestAnnualReport(payload);
+  if (!report) return null;
+  const ic = report.ic;
+  if (!Array.isArray(ic)) return null;
 
-  const metric = getMetricMap(basicPayload);
-  if (metric) {
-    const keys = [
-      "shareOutstanding",
-      "sharesOutstanding",
-      "numberOfShares",
-      "weightedAverageShsOut",
-    ];
-    for (const key of keys) {
-      const v = parseFinnhubNumber(metric[key]);
-      if (v !== null) return v;
-    }
+  for (const row of ic) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const concept = String(o.concept ?? "").toLowerCase();
+    if (!concept.includes("netincome")) continue;
+    if (/pershare|eps|dilutedeps|basiceps|subtotal/i.test(concept)) continue;
+    const v = parseFinnhubNumber(o.value ?? o.v ?? o.amount);
+    if (v !== null) return v;
   }
-
-  return profileShareOutstanding;
+  return null;
 }
 
 function getMetricMap(payload: unknown): Record<string, unknown> | null {
@@ -188,28 +127,19 @@ function getMetricMap(payload: unknown): Record<string, unknown> | null {
   return m as Record<string, unknown>;
 }
 
-function latestAnnualSeriesValue(
+/**
+ * Shares outstanding from `/stock/metric?metric=all`: Finnhub reports this figure in millions.
+ * Converts to an actual share count. No fallback to profile or other fields.
+ */
+export function extractSharesOutstandingFromBasicMetric(
   payload: unknown,
-  metricNames: string[],
 ): number | null {
-  if (!payload || typeof payload !== "object") return null;
-  const series = (payload as { series?: unknown }).series;
-  if (!series || typeof series !== "object") return null;
-  const annual = (series as { annual?: unknown }).annual;
-  if (!annual || typeof annual !== "object") return null;
-  const ann = annual as Record<string, unknown>;
-
-  for (const name of metricNames) {
-    const arr = ann[name];
-    if (!Array.isArray(arr) || arr.length === 0) continue;
-    const sorted = [...arr].sort((a, b) => {
-      const pa = String((a as { period?: unknown }).period ?? "");
-      const pb = String((b as { period?: unknown }).period ?? "");
-      return pb.localeCompare(pa);
-    });
-    const v = parseFinnhubNumber((sorted[0] as { v?: unknown }).v);
-    if (v !== null) return v;
-  }
-
-  return null;
+  const metric = getMetricMap(payload);
+  if (!metric) return null;
+  const raw =
+    parseFinnhubNumber(metric.sharesOutstanding) ??
+    parseFinnhubNumber(metric.shareOutstanding);
+  if (raw === null) return null;
+  const shares = raw * 1_000_000;
+  return Number.isFinite(shares) ? shares : null;
 }

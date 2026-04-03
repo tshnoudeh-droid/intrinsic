@@ -38,7 +38,9 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     typeof o.symbol === "string" &&
     typeof o.name === "string" &&
     typeof o.price === "number" &&
-    isNullableNumber(o.intrinsicValue)
+    isNullableNumber(o.intrinsicValue) &&
+    isNullableNumber(o.cashFlowUsed) &&
+    isNullableNumber(o.sharesOutstanding)
   );
 }
 
@@ -156,6 +158,35 @@ export function StockPageContent({ symbol }: Props) {
                 {formatCurrencyDisplay(data.price)}
               </p>
             </header>
+
+            <section
+              className="rounded-2xl border border-dashed border-intrinsic-secondary/25 bg-intrinsic-light/50 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
+              aria-label="Temporary valuation inputs (debug)"
+            >
+              <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                Debug (temporary)
+              </p>
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 sm:gap-x-8 sm:text-base">
+                <div className="flex justify-between gap-4 sm:flex-col sm:justify-start sm:gap-1">
+                  <dt className="text-intrinsic-secondary">Cash flow used</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {data.cashFlowUsed !== null
+                      ? formatCurrencyDisplay(data.cashFlowUsed)
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 sm:flex-col sm:justify-start sm:gap-1">
+                  <dt className="text-intrinsic-secondary">Shares outstanding</dt>
+                  <dd className="tabular-nums text-intrinsic-ink/90">
+                    {data.sharesOutstanding !== null
+                      ? data.sharesOutstanding.toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })
+                      : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
 
             {data.intrinsicValue === null ? (
               <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
