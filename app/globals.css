@@ -24,6 +24,13 @@ body {
   background-color: var(--color-intrinsic-bg);
   color: var(--color-intrinsic-ink);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+}
+
+@media (min-width: 1024px) {
+  body {
+    font-size: 18px;
+  }
 }
 
 @keyframes stock-page-enter {

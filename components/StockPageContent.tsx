@@ -9,6 +9,7 @@ import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-dis
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
 import { STOCK_PAGE_COPY } from "@/lib/stock-page-copy";
 import { buildValuationExplanation } from "@/lib/valuation-explanation";
+import { SearchBar } from "@/components/SearchBar";
 import { StockPriceChart } from "@/components/StockPriceChart";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -191,17 +192,34 @@ export function StockPageContent({ symbol }: Props) {
 
         {!loading && !loadError && data ? (
           <div className="animate-stock-page-enter flex flex-col items-stretch gap-10 sm:gap-12">
-            <header className="text-center">
-              <h1 className="text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl">
+            <header className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start lg:gap-x-8 lg:gap-y-4">
+              <h1 className="text-center text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl lg:col-start-1 lg:row-start-1 lg:text-left lg:text-7xl">
                 {data.symbol}
               </h1>
-              <p className="mt-3 text-base text-intrinsic-secondary sm:text-lg">
+              <p className="text-center text-xl text-intrinsic-secondary sm:text-2xl lg:col-start-1 lg:row-start-2 lg:text-left">
                 {data.name}
               </p>
-              <p className="mt-6 text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:mt-7 sm:text-5xl">
+              <div className="w-full lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start">
+                <SearchBar
+                  variant="compact"
+                  placeholder="Search another stock..."
+                  className="lg:max-w-[220px]"
+                />
+              </div>
+              <p className="text-center text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:text-5xl lg:col-start-1 lg:row-start-3 lg:text-left">
                 {formatCurrencyDisplay(data.price)}
               </p>
             </header>
+
+            <section className="min-w-0">
+              <StockPriceChart
+                key={data.symbol}
+                symbol={data.symbol}
+                intrinsicValue={
+                  canValuate ? liveValuation.intrinsicValue : null
+                }
+              />
+            </section>
 
             {!canValuate ? (
               <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
@@ -216,7 +234,7 @@ export function StockPageContent({ symbol }: Props) {
               <section className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-left shadow-sm sm:rounded-3xl sm:px-8 sm:py-10">
                 <div className="flex flex-col gap-6 sm:gap-7">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                    <p className="text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                       Intrinsic value
                     </p>
                     <p className="mt-1 text-3xl font-semibold tabular-nums text-intrinsic-ink sm:text-4xl">
@@ -235,7 +253,7 @@ export function StockPageContent({ symbol }: Props) {
                     <>
                       <div className="h-px bg-intrinsic-secondary/12" />
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                        <p className="text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                           Margin of safety
                         </p>
                         <p
@@ -251,7 +269,7 @@ export function StockPageContent({ symbol }: Props) {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                        <p className="text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                           Valuation
                         </p>
                         <p
@@ -293,7 +311,7 @@ export function StockPageContent({ symbol }: Props) {
                 </button>
                 {assumptionsOpen ? (
                   <div className="mt-4 space-y-6 border-t border-intrinsic-secondary/10 pt-5">
-                    <p className="mb-4 text-sm text-[#A69486]">
+                    <p className="mb-4 text-sm leading-relaxed text-[#A69486]">
                       Adjust the assumptions below to see how your personal
                       outlook changes the valuation.
                     </p>
@@ -383,11 +401,11 @@ export function StockPageContent({ symbol }: Props) {
 
             {canValuate && explanationText ? (
               <div className="flex flex-col gap-3">
-                <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                <p className="text-center text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                   {STOCK_PAGE_COPY.explanationSectionTitle}
                 </p>
                 <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-6 text-left sm:rounded-3xl sm:px-8 sm:py-7">
-                  <p className="text-sm leading-relaxed text-intrinsic-ink sm:text-base">
+                  <p className="text-base leading-relaxed text-intrinsic-ink">
                     {explanationText}
                   </p>
                   <p className="mt-4 text-xs leading-relaxed text-intrinsic-secondary/90 sm:text-sm">
@@ -402,7 +420,7 @@ export function StockPageContent({ symbol }: Props) {
                 className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light/90 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
                 aria-label={STOCK_PAGE_COPY.modelAssumptionsTitle}
               >
-                <p className="text-center text-xs font-medium uppercase tracking-wider text-intrinsic-secondary">
+                <p className="text-center text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                   {STOCK_PAGE_COPY.modelAssumptionsTitle}
                 </p>
                 <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
@@ -433,16 +451,6 @@ export function StockPageContent({ symbol }: Props) {
                 </dl>
               </section>
             ) : null}
-
-            <section className="min-w-0">
-              <StockPriceChart
-                key={data.symbol}
-                symbol={data.symbol}
-                intrinsicValue={
-                  canValuate ? liveValuation.intrinsicValue : null
-                }
-              />
-            </section>
 
             <p className="mx-auto max-w-xl text-center text-xs leading-relaxed text-intrinsic-secondary/80">
               {STOCK_PAGE_COPY.disclaimer}

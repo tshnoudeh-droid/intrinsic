@@ -106,7 +106,7 @@ export function Tooltip({ text }: Props) {
         <div
           id={tooltipId}
           role="tooltip"
-          className="pointer-events-auto absolute bottom-[calc(100%+6px)] left-1/2 z-[80] max-w-[220px] -translate-x-1/2 rounded-md border px-2.5 py-2 text-left text-xs leading-snug shadow-md"
+          className="pointer-events-auto absolute bottom-[calc(100%+6px)] left-1/2 z-[80] max-w-[280px] -translate-x-1/2 rounded-md border px-[14px] py-[10px] text-left text-[13px] leading-[1.5] break-words whitespace-normal shadow-md"
           style={{
             backgroundColor: "#FAF8F4",
             borderColor: "#EDE8DF",

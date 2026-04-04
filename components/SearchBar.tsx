@@ -13,10 +13,22 @@ import type { StockSearchResult } from "@/lib/search-types";
 
 const DEBOUNCE_MS = 400;
 
-export function SearchBar() {
+export type SearchBarProps = {
+  variant?: "default" | "compact";
+  placeholder?: string;
+  /** Extra classes on the outer wrapper (width, etc.) */
+  className?: string;
+};
+
+export function SearchBar({
+  variant = "default",
+  placeholder,
+  className = "",
+}: SearchBarProps) {
   const router = useRouter();
   const id = useId();
   const listId = `${id}-listbox`;
+  const inputId = `${id}-input`;
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState("");
@@ -26,6 +38,10 @@ export function SearchBar() {
   const [unavailable, setUnavailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
+
+  const defaultPlaceholder =
+    "Search for a stock (e.g. AAPL, TSLA, SHOP)";
+  const resolvedPlaceholder = placeholder ?? defaultPlaceholder;
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -115,16 +131,37 @@ export function SearchBar() {
   }, [scheduleClose]);
 
   const handleSelect = useCallback(
-    (symbol: string) => {
+    (sym: string) => {
       clearBlurTimer();
       setOpen(false);
       setQuery("");
       setDebouncedQuery("");
       setResults([]);
       setUnavailable(false);
-      router.push(`/stock/${encodeURIComponent(symbol)}`);
+      router.push(`/stock/${encodeURIComponent(sym)}`);
     },
     [clearBlurTimer, router],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== "Enter") return;
+      const t = query.trim();
+      if (!t) return;
+      e.preventDefault();
+      const lower = t.toLowerCase();
+      const exact = results.find(
+        (r) => r.symbol.toLowerCase() === lower,
+      );
+      if (exact) {
+        handleSelect(exact.symbol);
+        return;
+      }
+      if (results.length > 0) {
+        handleSelect(results[0].symbol);
+      }
+    },
+    [query, results, handleSelect],
   );
 
   const trimmed = query.trim();
@@ -140,16 +177,25 @@ export function SearchBar() {
   const showList =
     showDropdown && !showSearching && !unavailable && results.length > 0;
 
+  const isCompact = variant === "compact";
+  const wrapperClass = isCompact
+    ? "relative w-full"
+    : "relative w-full max-w-xl";
+
+  const inputClass = isCompact
+    ? "w-full rounded-xl border border-intrinsic-secondary/25 bg-intrinsic-light px-3 py-2.5 text-sm text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg"
+    : "w-full rounded-2xl border border-intrinsic-secondary/25 bg-intrinsic-light px-4 py-3.5 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow,transform] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg sm:px-5 sm:py-4 sm:text-lg";
+
   return (
-    <div className="relative w-full max-w-xl">
-      <label htmlFor="stock-search" className="sr-only">
+    <div className={`${wrapperClass} ${className}`.trim()}>
+      <label htmlFor={inputId} className="sr-only">
         Search for a stock
       </label>
       <input
-        id="stock-search"
+        id={inputId}
         type="search"
         name="stock-search"
-        placeholder="Search for a stock (e.g. AAPL, TSLA, SHOP)"
+        placeholder={resolvedPlaceholder}
         autoComplete="off"
         role="combobox"
         aria-expanded={showDropdown}
@@ -159,7 +205,8 @@ export function SearchBar() {
         onChange={(e) => setQuery(e.target.value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        className="w-full rounded-2xl border border-intrinsic-secondary/25 bg-intrinsic-light px-4 py-3.5 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow,transform] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg sm:px-5 sm:py-4 sm:text-lg"
+        onKeyDown={handleKeyDown}
+        className={inputClass}
       />
 
       {showDropdown ? (
