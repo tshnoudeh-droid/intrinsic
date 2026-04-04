@@ -10,6 +10,7 @@ import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estima
 import { STOCK_PAGE_COPY } from "@/lib/stock-page-copy";
 import { buildValuationExplanation } from "@/lib/valuation-explanation";
 import { StockPriceChart } from "@/components/StockPriceChart";
+import { Tooltip } from "@/components/Tooltip";
 import {
   marginOfSafetyPercent,
   valuationLabelFromMargin,
@@ -292,10 +293,15 @@ export function StockPageContent({ symbol }: Props) {
                 </button>
                 {assumptionsOpen ? (
                   <div className="mt-4 space-y-6 border-t border-intrinsic-secondary/10 pt-5">
+                    <p className="mb-4 text-sm text-[#A69486]">
+                      Adjust the assumptions below to see how your personal
+                      outlook changes the valuation.
+                    </p>
                     <div>
                       <div className="mb-2 flex justify-between gap-4 text-sm">
-                        <span className="text-intrinsic-secondary">
+                        <span className="flex items-center text-intrinsic-secondary">
                           Growth rate
+                          <Tooltip text="How fast you expect the company's cash flows to grow over the next 5 years. Higher means you're more optimistic about the company's future." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(growthRate * 100)}
@@ -315,8 +321,9 @@ export function StockPageContent({ symbol }: Props) {
                     </div>
                     <div>
                       <div className="mb-2 flex justify-between gap-4 text-sm">
-                        <span className="text-intrinsic-secondary">
+                        <span className="flex items-center text-intrinsic-secondary">
                           Discount rate
+                          <Tooltip text="The annual return you require from this investment. A higher rate means you demand more from the stock before considering it a good buy." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(discountRate * 100)}
@@ -336,8 +343,9 @@ export function StockPageContent({ symbol }: Props) {
                     </div>
                     <div>
                       <div className="mb-2 flex justify-between gap-4 text-sm">
-                        <span className="text-intrinsic-secondary">
+                        <span className="flex items-center text-intrinsic-secondary">
                           Terminal growth
+                          <Tooltip text="How fast you expect the company to grow indefinitely after year 5. This is usually kept close to long-term inflation, around 2-3%." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(terminalGrowth * 100)}
