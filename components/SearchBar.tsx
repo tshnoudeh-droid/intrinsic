@@ -18,18 +18,21 @@ export type SearchBarProps = {
   placeholder?: string;
   /** Extra classes on the outer wrapper (width, etc.) */
   className?: string;
+  autoFocus?: boolean;
 };
 
 export function SearchBar({
   variant = "default",
   placeholder,
   className = "",
+  autoFocus = false,
 }: SearchBarProps) {
   const router = useRouter();
   const id = useId();
   const listId = `${id}-listbox`;
   const inputId = `${id}-input`;
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -49,6 +52,12 @@ export function SearchBar({
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocus]);
 
   useEffect(() => {
     if (!debouncedQuery) {
@@ -192,6 +201,7 @@ export function SearchBar({
         Search for a stock
       </label>
       <input
+        ref={inputRef}
         id={inputId}
         type="search"
         name="stock-search"
