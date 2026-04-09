@@ -10,6 +10,7 @@ import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estima
 import { STOCK_PAGE_COPY } from "@/lib/stock-page-copy";
 import { buildValuationExplanation } from "@/lib/valuation-explanation";
 import { SearchBar } from "@/components/SearchBar";
+import { WatchlistStarButton } from "@/components/WatchlistStarButton";
 import { StockPriceChart } from "@/components/StockPriceChart";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -193,9 +194,12 @@ export function StockPageContent({ symbol }: Props) {
         {!loading && !loadError && data ? (
           <div className="animate-stock-page-enter flex flex-col items-stretch gap-10 sm:gap-12">
             <header className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start lg:gap-x-8 lg:gap-y-4">
-              <h1 className="text-center text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl lg:col-start-1 lg:row-start-1 lg:text-left lg:text-7xl">
-                {data.symbol}
-              </h1>
+              <div className="flex flex-wrap items-center justify-center gap-2 lg:col-start-1 lg:row-start-1 lg:justify-start">
+                <h1 className="text-5xl font-bold tracking-tight text-intrinsic-ink sm:text-6xl lg:text-7xl">
+                  {data.symbol}
+                </h1>
+                <WatchlistStarButton symbol={data.symbol} />
+              </div>
               <p className="text-center text-xl text-intrinsic-secondary sm:text-2xl lg:col-start-1 lg:row-start-2 lg:text-left">
                 {data.name}
               </p>
