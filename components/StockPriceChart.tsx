@@ -25,9 +25,29 @@ type Props = {
   intrinsicValue: number | null;
 };
 
-function formatTooltipDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
+/** Parse `YYYY-MM-DD` as local calendar date (avoids UTC off-by-one in tooltips). */
+function parseISODateLocal(iso: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+function formatTooltipDateLabel(iso: string): string {
+  const d = parseISODateLocal(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatAxisTick(iso: string, chartRange: HistoryRange): string {
+  const d = parseISODateLocal(iso);
+  if (!d) return iso;
+  if (chartRange === "1Y") {
+    return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  }
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -45,8 +65,8 @@ function ChartTooltip({
   const price =
     typeof raw === "number" && Number.isFinite(raw) ? raw : Number(raw);
   if (!Number.isFinite(price)) return null;
-  const dateLabel =
-    typeof label === "string" ? formatTooltipDate(label) : String(label);
+  const iso = typeof label === "string" ? label : String(label);
+  const dateLabel = formatTooltipDateLabel(iso);
 
   return (
     <div
@@ -213,7 +233,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
                   tick={{ fill: "var(--color-intrinsic-secondary)", fontSize: 11 }}
                   tickLine={false}
                   axisLine={{ stroke: "var(--color-intrinsic-secondary)", strokeOpacity: 0.25 }}
-                  tickFormatter={(v) => formatTooltipDate(String(v))}
+                  tickFormatter={(v) => formatAxisTick(String(v), range)}
                 />
                 <YAxis
                   domain={yDomain}

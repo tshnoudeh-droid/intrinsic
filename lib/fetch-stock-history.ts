@@ -1,5 +1,7 @@
 import type { HistoryPoint, HistoryRange } from "@/lib/history-types";
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 function parseHistoryPayload(json: unknown): HistoryPoint[] {
   if (!Array.isArray(json)) return [];
   return json.filter(
@@ -9,6 +11,7 @@ function parseHistoryPayload(json: unknown): HistoryPoint[] {
       "date" in row &&
       "price" in row &&
       typeof (row as HistoryPoint).date === "string" &&
+      ISO_DAY.test((row as HistoryPoint).date) &&
       typeof (row as HistoryPoint).price === "number",
   );
 }
