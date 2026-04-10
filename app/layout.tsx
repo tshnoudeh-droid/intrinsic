@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Navbar } from "@/components/Navbar";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,11 +34,12 @@ export default function RootLayout({
       >
         <body className="flex min-h-full flex-col font-sans">
           <Navbar />
-          <main className="flex flex-1 flex-col">
+          <main className="flex min-h-0 flex-1 flex-col">
             <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 sm:px-6 lg:px-8">
               {children}
             </div>
           </main>
+          <SiteFooter />
         </body>
       </html>
     </ClerkProvider>

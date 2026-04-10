@@ -168,10 +168,6 @@ export default function Home() {
           </p>
         </Show>
       </section>
-
-      <footer className="pb-8 text-center text-xs text-[#A69486]">
-        © 2025 Intrinsic. Not financial advice.
-      </footer>
     </div>
   );
 }
