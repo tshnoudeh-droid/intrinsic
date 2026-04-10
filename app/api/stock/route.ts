@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CACHE_HEADERS_NO_STORE } from "@/lib/http-cache-headers";
 import { computeStockPayloadFromYahoo } from "@/lib/yahoo-stock-payload";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
   if (!symbol) {
     return NextResponse.json(
       { error: true, message: "Symbol is required" },
-      { status: 400 },
+      { status: 400, headers: CACHE_HEADERS_NO_STORE },
     );
   }
 
@@ -16,9 +17,9 @@ export async function GET(request: NextRequest) {
   if (!payload) {
     return NextResponse.json(
       { error: true, message: "Failed to load data" },
-      { status: 502 },
+      { status: 502, headers: CACHE_HEADERS_NO_STORE },
     );
   }
 
-  return NextResponse.json(payload);
+  return NextResponse.json(payload, { headers: CACHE_HEADERS_NO_STORE });
 }

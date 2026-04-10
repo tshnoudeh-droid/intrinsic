@@ -18,7 +18,7 @@ export type FetchStockHistoryResult =
   | { ok: false; error: "http" | "network" | "bad_payload" };
 
 /**
- * Loads candle history from the app API (Finnhub-backed). Does not hardcode a symbol.
+ * Loads daily history from `/api/history` (Yahoo Finance via server). Does not hardcode a symbol.
  */
 export async function fetchStockHistory(
   symbol: string,
@@ -32,7 +32,7 @@ export async function fetchStockHistory(
   const url = `/api/history?symbol=${encodeURIComponent(trimmed)}&range=${encodeURIComponent(range)}`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       return { ok: false, error: "http" };
     }

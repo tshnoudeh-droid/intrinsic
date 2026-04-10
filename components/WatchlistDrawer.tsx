@@ -54,6 +54,7 @@ export function WatchlistDrawer({ isOpen, onClose, userId }: Props) {
     try {
       const res = await fetch(
         `/api/watchlist-data?symbols=${encodeURIComponent(list.join(","))}`,
+        { cache: "no-store" },
       );
       const data: unknown = await res.json().catch(() => null);
       if (!Array.isArray(data)) {

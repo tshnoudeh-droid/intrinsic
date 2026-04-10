@@ -75,7 +75,9 @@ export function StockPageContent({ symbol }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/stock?symbol=${encodeURIComponent(symbol)}`)
+    fetch(`/api/stock?symbol=${encodeURIComponent(symbol)}`, {
+      cache: "no-store",
+    })
       .then(async (res) => {
         if (cancelled) return;
         const json: unknown = await res.json().catch(() => null);
@@ -223,6 +225,9 @@ export function StockPageContent({ symbol }: Props) {
                   canValuate ? liveValuation.intrinsicValue : null
                 }
               />
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-intrinsic-secondary/85 sm:mt-4">
+                {STOCK_PAGE_COPY.marketDataDelayNote}
+              </p>
             </section>
 
             {!canValuate ? (

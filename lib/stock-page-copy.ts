@@ -1,6 +1,9 @@
 /** Static copy for the stock detail page (keep out of component markup). */
 
 export const STOCK_PAGE_COPY = {
+  /** Yahoo consolidated quotes are typically delayed ~15 minutes vs live exchange tape (non–real-time feeds). */
+  marketDataDelayNote:
+    "Prices and charts reflect Yahoo Finance data (exchange-listed symbols). Quotes are typically delayed by about 15 minutes compared with the live tape.",
   valuationUnavailableTitle: "Valuation unavailable",
   valuationUnavailableBody:
     "Not enough financial data to generate a reliable valuation for this stock.",

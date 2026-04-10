@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CACHE_HEADERS_NO_STORE } from "@/lib/http-cache-headers";
 import { computeStockPayloadFromYahoo } from "@/lib/yahoo-stock-payload";
 import { valuationLabelFromMargin } from "@/lib/valuation-label";
 
@@ -16,7 +17,9 @@ export type WatchlistDataItem = {
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get("symbols")?.trim() ?? "";
   if (!raw) {
-    return NextResponse.json([] satisfies (WatchlistDataItem | null)[]);
+    return NextResponse.json([] satisfies (WatchlistDataItem | null)[], {
+      headers: CACHE_HEADERS_NO_STORE,
+    });
   }
 
   const symbols = [
@@ -51,5 +54,7 @@ export async function GET(request: NextRequest) {
     }),
   );
 
-  return NextResponse.json(results satisfies (WatchlistDataItem | null)[]);
+  return NextResponse.json(results satisfies (WatchlistDataItem | null)[], {
+    headers: CACHE_HEADERS_NO_STORE,
+  });
 }
