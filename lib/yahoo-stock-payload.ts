@@ -1,5 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 
+import type { UnavailableReason } from "@/lib/stock-detail-types";
+
 const yahooFinance = new YahooFinance();
 
 const DISCOUNT_RATE = 0.09;
@@ -109,6 +111,13 @@ export type YahooStockPayload = {
   sharesOutstanding: number | null;
   fcf: number | null;
   dataSource: "yahoo-finance2";
+  unavailableReason: UnavailableReason | null;
+  marketCap: number | null;
+  peRatio: number | null;
+  forwardPE: number | null;
+  revenueGrowth: number | null;
+  week52High: number | null;
+  week52Low: number | null;
 };
 
 /**
@@ -232,6 +241,55 @@ export async function computeStockPayloadFromYahoo(
       }
     }
 
+    let diagnosticEarnings: number | null = null;
+    if (Array.isArray(inc) && inc.length > 0) {
+      const sortedInc = [...inc].sort(
+        (a, b) =>
+          new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+      );
+      const latest = sortedInc[0] as unknown as Record<string, unknown>;
+      diagnosticEarnings = num(latest.netIncome);
+    }
+    if (
+      diagnosticEarnings === null &&
+      sharesOutstanding !== null &&
+      sharesOutstanding > 0
+    ) {
+      const te = num(dks?.trailingEps);
+      if (te !== null) {
+        diagnosticEarnings = te * sharesOutstanding;
+      }
+    }
+
+    const diagnosticCashFlow: number | null =
+      averagedFcf ?? freeCashflowAnnual;
+
+    let unavailableReason: UnavailableReason | null = null;
+    if (intrinsicValue === null) {
+      const so = sharesOutstanding;
+      if (diagnosticCashFlow === null && diagnosticEarnings === null) {
+        unavailableReason = "no_cash_flow_data";
+      } else if (
+        diagnosticCashFlow !== null &&
+        diagnosticEarnings !== null &&
+        diagnosticCashFlow <= 0 &&
+        diagnosticEarnings <= 0
+      ) {
+        unavailableReason = "negative_cash_flow";
+      } else if (so === null || so <= 0) {
+        unavailableReason = "no_shares_data";
+      } else {
+        unavailableReason = "insufficient_data";
+      }
+    }
+
+    const marketCap = num(dks?.marketCap);
+    const peRatio = num(dks?.trailingPE);
+    const forwardPE = num(dks?.forwardPE);
+    const revenueGrowth = asGrowthDecimal(fd?.revenueGrowth);
+    const week52High = num(dks?.fiftyTwoWeekHigh);
+    const week52Low = num(dks?.fiftyTwoWeekLow);
+
     return {
       symbol,
       name,
@@ -246,6 +304,13 @@ export async function computeStockPayloadFromYahoo(
           : null,
       fcf: fcfReported,
       dataSource: "yahoo-finance2",
+      unavailableReason,
+      marketCap,
+      peRatio,
+      forwardPE,
+      revenueGrowth,
+      week52High,
+      week52Low,
     };
   } catch {
     return null;

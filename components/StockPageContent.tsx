@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { KeyStats } from "@/components/KeyStats";
 import type { StockDetailPayload } from "@/lib/stock-detail-types";
 import { calculateDCF } from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
-import { STOCK_PAGE_COPY } from "@/lib/stock-page-copy";
+import {
+  STOCK_PAGE_COPY,
+  VALUATION_UNAVAILABLE_BODY_BY_REASON,
+} from "@/lib/stock-page-copy";
 import { buildValuationExplanation } from "@/lib/valuation-explanation";
 import { SearchBar } from "@/components/SearchBar";
 import { WatchlistStarButton } from "@/components/WatchlistStarButton";
@@ -34,6 +38,22 @@ function isStockApiError(json: unknown): json is { error: true } {
   );
 }
 
+function isNullishFiniteNumber(v: unknown): v is number | null {
+  return v === null || (typeof v === "number" && Number.isFinite(v));
+}
+
+function isUnavailableReasonField(
+  v: unknown,
+): v is StockDetailPayload["unavailableReason"] {
+  return (
+    v === null ||
+    v === "no_cash_flow_data" ||
+    v === "negative_cash_flow" ||
+    v === "no_shares_data" ||
+    v === "insufficient_data"
+  );
+}
+
 function isStockDetailPayload(json: unknown): json is StockDetailPayload {
   if (!json || typeof json !== "object") return false;
   const o = json as Record<string, unknown>;
@@ -45,8 +65,24 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     typeof o.growthRateUsed === "number" &&
     isNullableNumber(o.intrinsicValue) &&
     isNullableNumber(o.cashFlowUsed) &&
-    isNullableNumber(o.sharesOutstanding)
+    isNullableNumber(o.sharesOutstanding) &&
+    isUnavailableReasonField(o.unavailableReason) &&
+    isNullishFiniteNumber(o.marketCap) &&
+    isNullishFiniteNumber(o.peRatio) &&
+    isNullishFiniteNumber(o.forwardPE) &&
+    isNullishFiniteNumber(o.revenueGrowth) &&
+    isNullishFiniteNumber(o.week52High) &&
+    isNullishFiniteNumber(o.week52Low)
   );
+}
+
+function valuationUnavailableBody(
+  reason: StockDetailPayload["unavailableReason"],
+): string {
+  if (reason === null) {
+    return STOCK_PAGE_COPY.valuationUnavailableBody;
+  }
+  return VALUATION_UNAVAILABLE_BODY_BY_REASON[reason];
 }
 
 function valuationLabelClass(
@@ -236,7 +272,10 @@ export function StockPageContent({ symbol }: Props) {
                   {STOCK_PAGE_COPY.valuationUnavailableTitle}
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary sm:text-base">
-                  {STOCK_PAGE_COPY.valuationUnavailableBody}
+                  {valuationUnavailableBody(data.unavailableReason)}
+                </p>
+                <p className="mt-4 text-xs leading-relaxed text-[#A69486]">
+                  {STOCK_PAGE_COPY.valuationUnavailableDcfNote}
                 </p>
               </div>
             ) : (
@@ -292,6 +331,15 @@ export function StockPageContent({ symbol }: Props) {
                 </div>
               </section>
             )}
+
+            <KeyStats
+              marketCap={data.marketCap}
+              peRatio={data.peRatio}
+              forwardPE={data.forwardPE}
+              revenueGrowth={data.revenueGrowth}
+              week52High={data.week52High}
+              week52Low={data.week52Low}
+            />
 
             {canValuate ? (
               <div className="border-b border-intrinsic-secondary/15 pb-1">

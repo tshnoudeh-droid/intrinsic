@@ -1,3 +1,5 @@
+import type { UnavailableReason } from "@/lib/stock-detail-types";
+
 /** Static copy for the stock detail page (keep out of component markup). */
 
 export const STOCK_PAGE_COPY = {
@@ -17,4 +19,20 @@ export const STOCK_PAGE_COPY = {
     "For Canadian investors using a TFSA, a margin of safety above 15% is often preferred for long-term investing.",
   unreliableEstimate:
     "Estimate may be unreliable due to data limitations.",
+  valuationUnavailableDcfNote:
+    "DCF valuation works best for profitable companies with at least 2 years of cash flow history.",
 } as const;
+
+export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
+  UnavailableReason,
+  string
+> = {
+  no_cash_flow_data:
+    "This stock doesn't have enough cash flow history for a reliable DCF valuation. This is common for newly listed companies, pre-profit startups, or stocks with limited financial reporting.",
+  negative_cash_flow:
+    "This company currently has negative cash flows, which means a DCF model can't produce a meaningful intrinsic value. This is common for high-growth companies reinvesting heavily.",
+  no_shares_data:
+    "We couldn't retrieve shares outstanding data for this stock. This is sometimes the case for smaller or internationally listed companies.",
+  insufficient_data:
+    "Not enough financial data to generate a reliable valuation for this stock.",
+};

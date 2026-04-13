@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Payload includes DCF outputs, `unavailableReason` when intrinsic value is null,
+  // and key stats (market cap, P/E, etc.) from Yahoo summary modules.
   const payload = await computeStockPayloadFromYahoo(symbol);
   if (!payload) {
     return NextResponse.json(

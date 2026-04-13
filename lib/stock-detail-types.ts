@@ -1,3 +1,9 @@
+export type UnavailableReason =
+  | "no_cash_flow_data"
+  | "negative_cash_flow"
+  | "no_shares_data"
+  | "insufficient_data";
+
 export type StockDetailPayload = {
   symbol: string;
   name: string;
@@ -9,6 +15,14 @@ export type StockDetailPayload = {
   cashFlowUsed: number | null;
   /** Share count from basic metric (millions × 1e6), after validation, or null. */
   sharesOutstanding: number | null;
+  unavailableReason: UnavailableReason | null;
+  marketCap: number | null;
+  peRatio: number | null;
+  forwardPE: number | null;
+  /** Revenue growth as decimal (e.g. 0.12 for 12%), or null. */
+  revenueGrowth: number | null;
+  week52High: number | null;
+  week52Low: number | null;
 };
 
 export type StockApiError = {
