@@ -85,6 +85,22 @@ function valuationUnavailableBody(
   return VALUATION_UNAVAILABLE_BODY_BY_REASON[reason];
 }
 
+function valuationCardContextLine(
+  label: "Undervalued" | "Fair" | "Overvalued",
+  margin: number,
+): string | null {
+  if (label === "Fair") {
+    return STOCK_PAGE_COPY.valuationCardFairNote;
+  }
+  if (label === "Overvalued" && margin < -50) {
+    return STOCK_PAGE_COPY.valuationCardOvervaluedExtremeNote;
+  }
+  if (label === "Undervalued" && margin > 50) {
+    return STOCK_PAGE_COPY.valuationCardUndervaluedStrongNote;
+  }
+  return null;
+}
+
 function valuationLabelClass(
   label: "Undervalued" | "Fair" | "Overvalued",
 ): string {
@@ -207,6 +223,25 @@ export function StockPageContent({ symbol }: Props) {
     );
   }, [data, liveValuation.intrinsicValue]);
 
+  const extremeValuationBannerText = useMemo(() => {
+    if (!canValuate || liveValuation.margin === null) return null;
+    const m = liveValuation.margin;
+    if (m < -50) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
+    if (m > 100) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
+    return null;
+  }, [canValuate, liveValuation.margin]);
+
+  const valuationContextNote = useMemo(() => {
+    if (
+      !canValuate ||
+      liveValuation.margin === null ||
+      liveValuation.label === null
+    ) {
+      return null;
+    }
+    return valuationCardContextLine(liveValuation.label, liveValuation.margin);
+  }, [canValuate, liveValuation.margin, liveValuation.label]);
+
   return (
     <div className="flex w-full flex-1 flex-col items-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
       <div className="w-full max-w-4xl">
@@ -279,7 +314,16 @@ export function StockPageContent({ symbol }: Props) {
                 </p>
               </div>
             ) : (
-              <section className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-left shadow-sm sm:rounded-3xl sm:px-8 sm:py-10">
+              <>
+                {extremeValuationBannerText ? (
+                  <div
+                    className="mb-6 border-l-[3px] border-[#A69486] bg-[#FAF8F4] p-4 text-sm leading-relaxed text-[#5a4a3f] rounded-r-lg"
+                    role="status"
+                  >
+                    {extremeValuationBannerText}
+                  </div>
+                ) : null}
+                <section className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-left shadow-sm sm:rounded-3xl sm:px-8 sm:py-10">
                 <div className="flex flex-col gap-6 sm:gap-7">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
@@ -325,11 +369,17 @@ export function StockPageContent({ symbol }: Props) {
                         >
                           {liveValuation.label}
                         </p>
+                        {valuationContextNote ? (
+                          <p className="mt-2 text-xs leading-relaxed text-[#A69486]">
+                            {valuationContextNote}
+                          </p>
+                        ) : null}
                       </div>
                     </>
                   ) : null}
                 </div>
               </section>
+              </>
             )}
 
             <KeyStats

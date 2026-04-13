@@ -21,6 +21,16 @@ export const STOCK_PAGE_COPY = {
     "Estimate may be unreliable due to data limitations.",
   valuationUnavailableDcfNote:
     "DCF valuation works best for profitable companies with at least 2 years of cash flow history.",
+  extremeOvervaluedBanner:
+    "This stock is priced far above its DCF value. This is common for high-growth or story stocks where the market is pricing in future potential that a cash flow model doesn't capture. Use the sliders below to adjust growth assumptions and find the price that makes sense for you.",
+  extremeUndervaluedBanner:
+    "This stock appears significantly undervalued by DCF. Before acting on this, verify the financial data is current and consider why the market may be pricing it lower — there may be risks the model doesn't capture.",
+  valuationCardOvervaluedExtremeNote:
+    "The market may be pricing in growth beyond what this model assumes.",
+  valuationCardUndervaluedStrongNote:
+    "Verify data quality before drawing conclusions.",
+  valuationCardFairNote:
+    "Price aligns closely with estimated cash flow value.",
 } as const;
 
 export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
