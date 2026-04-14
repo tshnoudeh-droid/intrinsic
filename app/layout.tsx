@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "Intrinsic",
   description:
     "A simple, Canadian-focused way to see if a stock is overvalued or undervalued.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
