@@ -1,10 +1,13 @@
 import YahooFinance from "yahoo-finance2";
 
-import type { UnavailableReason } from "@/lib/stock-detail-types";
+import type {
+  GrowthSource,
+  UnavailableReason,
+} from "@/lib/stock-detail-types";
 
 const yahooFinance = new YahooFinance();
 
-const DISCOUNT_RATE = 0.09;
+const DISCOUNT_RATE = 0.06;
 const TERMINAL_GROWTH_RATE = 0.025;
 const PROJECTION_YEARS = 5;
 const DEFAULT_GROWTH = 0.05;
@@ -49,28 +52,35 @@ function computeRevenueCagrRaw(
   return raw;
 }
 
-function computeGrowthRateUsed(
+/**
+ * PRIMARY: Yahoo `financialData.revenueGrowth` (analyst consensus forward revenue growth).
+ * SECONDARY: 2-year revenue YoY (existing helper), capped at 10% for fallback.
+ * DEFAULT: 5%.
+ */
+function computeGrowthRateAndSource(
   revenueGrowthRaw: unknown,
   revenueCagrRaw: number | null,
   fcfPositive: boolean,
-): number {
-  const yahoo = asGrowthDecimal(revenueGrowthRaw);
-  let computedRate: number | null = null;
-  if (yahoo !== null) {
-    computedRate = yahoo;
-  } else if (revenueCagrRaw !== null && Number.isFinite(revenueCagrRaw)) {
-    computedRate = revenueCagrRaw;
+): { growthRateUsed: number; growthSource: GrowthSource } {
+  const analyst = asGrowthDecimal(revenueGrowthRaw);
+  if (analyst !== null && analyst >= 0 && analyst <= 0.3) {
+    return { growthRateUsed: analyst, growthSource: "analyst" };
   }
 
-  if (computedRate === null) {
-    return DEFAULT_GROWTH;
+  if (revenueCagrRaw !== null && Number.isFinite(revenueCagrRaw)) {
+    let rate: number;
+    if (revenueCagrRaw < 0) {
+      rate = fcfPositive ? 0.02 : 0.0;
+    } else {
+      rate = Math.min(revenueCagrRaw, 0.1);
+    }
+    return { growthRateUsed: rate, growthSource: "historical" };
   }
 
-  if (computedRate < 0) {
-    return fcfPositive ? 0.02 : 0.0;
-  }
-
-  return Math.max(0.0, Math.min(0.2, computedRate));
+  return {
+    growthRateUsed: DEFAULT_GROWTH,
+    growthSource: "default",
+  };
 }
 
 function firstFiniteNum(...candidates: unknown[]): number | null {
@@ -128,6 +138,8 @@ export type YahooStockPayload = {
   intrinsicValue: number | null;
   marginOfSafety: number | null;
   growthRateUsed: number;
+  growthSource: GrowthSource;
+  discountRateUsed: number;
   cashFlowUsed: number | null;
   sharesOutstanding: number | null;
   fcf: number | null;
@@ -224,7 +236,7 @@ export async function computeStockPayloadFromYahoo(
       );
     }
 
-    const growthRateUsed = computeGrowthRateUsed(
+    const { growthRateUsed, growthSource } = computeGrowthRateAndSource(
       fd?.revenueGrowth,
       revenueCagrRaw,
       fcfPositiveForGrowth,
@@ -339,6 +351,8 @@ export async function computeStockPayloadFromYahoo(
       intrinsicValue,
       marginOfSafety,
       growthRateUsed,
+      growthSource,
+      discountRateUsed: DISCOUNT_RATE,
       cashFlowUsed: cashFlow,
       sharesOutstanding:
         sharesOutstanding !== null && Number.isFinite(sharesOutstanding)

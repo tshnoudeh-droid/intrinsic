@@ -89,9 +89,16 @@ The valuation model MUST follow these rules:
 2. If FCF is unavailable, fallback to earnings
 
 3. Use default assumptions:
-- Growth rate: reasonable estimate (or static default)
-- Discount rate: 8%–10%
-- Terminal growth: 2%–3%
+- **Growth rate**
+  - **Primary:** analyst forward revenue estimate from Yahoo `financialData.revenueGrowth` (capped 0–30%)
+  - **Fallback:** historical 2-year revenue CAGR (capped at 10%)
+  - **Default** if both unavailable: 5%
+- **Discount rate**
+  - **Default:** 6%
+  - **Slider range:** 4% to 12%
+  - **Rationale:** ~30-year US Treasury yield plus a small equity risk premium
+- **Terminal growth:** 2.5% (unchanged)
+- **Projection years:** 5 (unchanged)
 
 4. Keep model simple:
 - Max 1–2 growth stages

@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { KeyStats } from "@/components/KeyStats";
-import type { StockDetailPayload } from "@/lib/stock-detail-types";
+import type {
+  GrowthSource,
+  StockDetailPayload,
+} from "@/lib/stock-detail-types";
 import { calculateDCF } from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
@@ -54,6 +57,10 @@ function isUnavailableReasonField(
   );
 }
 
+function isGrowthSourceField(v: unknown): v is GrowthSource {
+  return v === "analyst" || v === "historical" || v === "default";
+}
+
 function isStockDetailPayload(json: unknown): json is StockDetailPayload {
   if (!json || typeof json !== "object") return false;
   const o = json as Record<string, unknown>;
@@ -63,6 +70,8 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     typeof o.name === "string" &&
     typeof o.price === "number" &&
     typeof o.growthRateUsed === "number" &&
+    isGrowthSourceField(o.growthSource) &&
+    typeof o.discountRateUsed === "number" &&
     isNullableNumber(o.intrinsicValue) &&
     isNullableNumber(o.cashFlowUsed) &&
     isNullableNumber(o.sharesOutstanding) &&
@@ -92,13 +101,24 @@ function valuationCardContextLine(
   if (label === "Fair") {
     return STOCK_PAGE_COPY.valuationCardFairNote;
   }
-  if (label === "Overvalued" && margin < -50) {
+  if (label === "Overvalued" && margin < -60) {
     return STOCK_PAGE_COPY.valuationCardOvervaluedExtremeNote;
   }
-  if (label === "Undervalued" && margin > 50) {
+  if (label === "Undervalued" && margin > 80) {
     return STOCK_PAGE_COPY.valuationCardUndervaluedStrongNote;
   }
   return null;
+}
+
+function growthSourceCaption(source: GrowthSource): string {
+  switch (source) {
+    case "analyst":
+      return "Based on analyst estimates";
+    case "historical":
+      return "Based on historical revenue";
+    default:
+      return "Using default estimate";
+  }
 }
 
 function valuationLabelClass(
@@ -120,7 +140,7 @@ export function StockPageContent({ symbol }: Props) {
   const [loading, setLoading] = useState(true);
 
   const [growthRate, setGrowthRate] = useState(0.05);
-  const [discountRate, setDiscountRate] = useState(0.09);
+  const [discountRate, setDiscountRate] = useState(0.06);
   const [terminalGrowth, setTerminalGrowth] = useState(0.025);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
@@ -149,7 +169,7 @@ export function StockPageContent({ symbol }: Props) {
             json.sharesOutstanding !== null
           ) {
             setGrowthRate(json.growthRateUsed);
-            setDiscountRate(0.09);
+            setDiscountRate(0.06);
             setTerminalGrowth(0.025);
           }
           setLoadError(false);
@@ -226,8 +246,8 @@ export function StockPageContent({ symbol }: Props) {
   const extremeValuationBannerText = useMemo(() => {
     if (!canValuate || liveValuation.margin === null) return null;
     const m = liveValuation.margin;
-    if (m < -50) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
-    if (m > 100) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
+    if (m < -60) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
+    if (m > 80) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
     return null;
   }, [canValuate, liveValuation.margin]);
 
@@ -426,7 +446,7 @@ export function StockPageContent({ symbol }: Props) {
                       <div className="mb-2 flex justify-between gap-4 text-sm">
                         <span className="flex items-center text-intrinsic-secondary">
                           Growth rate
-                          <Tooltip text="How fast you expect the company's cash flows to grow over the next 5 years. Higher means you're more optimistic about the company's future." />
+                          <Tooltip text="The expected annual growth in cash flows. We use analyst consensus estimates where available, falling back to historical revenue growth for smaller or less-covered stocks." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(growthRate * 100)}
@@ -435,8 +455,8 @@ export function StockPageContent({ symbol }: Props) {
                       <input
                         type="range"
                         className="intrinsic-assumption-range"
-                        min={0.02}
-                        max={0.4}
+                        min={0}
+                        max={0.3}
                         step={0.005}
                         value={growthRate}
                         onChange={(e) =>
@@ -448,7 +468,7 @@ export function StockPageContent({ symbol }: Props) {
                       <div className="mb-2 flex justify-between gap-4 text-sm">
                         <span className="flex items-center text-intrinsic-secondary">
                           Discount rate
-                          <Tooltip text="The annual return you require from this investment. A higher rate means you demand more from the stock before considering it a good buy." />
+                          <Tooltip text="The annual return you require from this investment. We default to 6% — roughly the 30-year US Treasury yield plus a small premium for equity risk. Buffett uses the treasury yield alone (~4.9%). Raise this if you want a larger margin of safety." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(discountRate * 100)}
@@ -457,8 +477,8 @@ export function StockPageContent({ symbol }: Props) {
                       <input
                         type="range"
                         className="intrinsic-assumption-range"
-                        min={0.05}
-                        max={0.15}
+                        min={0.04}
+                        max={0.12}
                         step={0.005}
                         value={discountRate}
                         onChange={(e) =>
@@ -493,7 +513,7 @@ export function StockPageContent({ symbol }: Props) {
                         type="button"
                         onClick={() => {
                           setGrowthRate(data.growthRateUsed);
-                          setDiscountRate(0.09);
+                          setDiscountRate(0.06);
                           setTerminalGrowth(0.025);
                         }}
                         className="text-xs text-intrinsic-secondary/90 underline-offset-2 hover:text-intrinsic-ink hover:underline"
@@ -532,9 +552,14 @@ export function StockPageContent({ symbol }: Props) {
                 </p>
                 <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
                   <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                    <dt>Growth rate</dt>
-                    <dd className="tabular-nums text-intrinsic-ink/90">
-                      {formatPercentOneDecimal(growthRate * 100)}
+                    <dt className="self-start">Growth rate</dt>
+                    <dd className="text-right sm:text-left">
+                      <div className="tabular-nums text-intrinsic-ink/90">
+                        {formatPercentOneDecimal(growthRate * 100)}
+                      </div>
+                      <div className="mt-0.5 text-xs font-normal text-[#A69486]">
+                        {growthSourceCaption(data.growthSource)}
+                      </div>
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
