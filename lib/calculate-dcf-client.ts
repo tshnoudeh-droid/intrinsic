@@ -34,7 +34,9 @@ export function calculateDCF(input: CalculateDcfInput): number | null {
   if (!Number.isFinite(g) || !Number.isFinite(r) || !Number.isFinite(tg)) {
     return null;
   }
-  if (r <= tg) return null;
+
+  const denominator = r - tg;
+  if (denominator <= 0.005) return null;
 
   let sumPv = 0;
   for (let year = 1; year <= n; year++) {
@@ -45,7 +47,7 @@ export function calculateDCF(input: CalculateDcfInput): number | null {
   }
 
   const lastCf = cashFlow * (1 + g) ** n;
-  const terminalValue = (lastCf * (1 + tg)) / (r - tg);
+  const terminalValue = (lastCf * (1 + tg)) / denominator;
   const pvTerminal = terminalValue / (1 + r) ** n;
   if (!Number.isFinite(pvTerminal)) return null;
 

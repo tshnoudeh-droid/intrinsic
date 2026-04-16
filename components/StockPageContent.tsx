@@ -112,16 +112,18 @@ function valuationCardContextLine(
   return null;
 }
 
-function growthSourceCaption(source: GrowthSource): string {
+function growthSourceShortLabel(source: GrowthSource): string {
   switch (source) {
     case "analyst":
-      return "Based on analyst estimates";
+      return "Analyst estimate";
     case "historical":
-      return "Based on historical revenue";
+      return "Historical";
     default:
-      return "Using default estimate";
+      return "Default";
   }
 }
+
+const GROWTH_SLIDER_ADJUSTMENT_RANGE = 0.3;
 
 function valuationLabelClass(
   label: "Undervalued" | "Fair" | "Overvalued",
@@ -195,6 +197,31 @@ export function StockPageContent({ symbol }: Props) {
     };
   }, [symbol]);
 
+  const growthSliderMin = useMemo(
+    () =>
+      data
+        ? Math.max(0, data.growthRateUsed - GROWTH_SLIDER_ADJUSTMENT_RANGE)
+        : 0,
+    [data],
+  );
+
+  const growthSliderMax = useMemo(
+    () =>
+      data
+        ? Math.min(0.6, data.growthRateUsed + GROWTH_SLIDER_ADJUSTMENT_RANGE)
+        : 0.6,
+    [data],
+  );
+
+  /** Clamped to slider bounds so DCF and UI stay consistent if bounds change (e.g. new symbol). */
+  const appliedGrowthRate = useMemo(() => {
+    if (!data) return growthRate;
+    return Math.min(
+      growthSliderMax,
+      Math.max(growthSliderMin, growthRate),
+    );
+  }, [data, growthRate, growthSliderMin, growthSliderMax]);
+
   const canValuate =
     data !== null &&
     data.cashFlowUsed !== null &&
@@ -215,7 +242,7 @@ export function StockPageContent({ symbol }: Props) {
     const intrinsicValue = calculateDCF({
       cashFlow: data.cashFlowUsed,
       sharesOutstanding: data.sharesOutstanding,
-      growthRate,
+      growthRate: appliedGrowthRate,
       discountRate,
       terminalGrowthRate: terminalGrowth,
     });
@@ -226,16 +253,16 @@ export function StockPageContent({ symbol }: Props) {
     const label =
       margin !== null ? valuationLabelFromMargin(margin) : null;
     return { intrinsicValue, margin, label };
-  }, [data, growthRate, discountRate, terminalGrowth]);
+  }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
 
   const explanationText = useMemo(() => {
     if (!data || liveValuation.margin === null) return null;
     return buildValuationExplanation(
       liveValuation.margin,
-      growthRate,
+      appliedGrowthRate,
       discountRate,
     );
-  }, [data, liveValuation.margin, growthRate, discountRate]);
+  }, [data, liveValuation.margin, appliedGrowthRate, discountRate]);
 
   const unreliableEstimate = useMemo(() => {
     if (!data || liveValuation.intrinsicValue === null) return false;
@@ -244,6 +271,29 @@ export function StockPageContent({ symbol }: Props) {
       data.price,
     );
   }, [data, liveValuation.intrinsicValue]);
+
+  const slidersAdjustedFromDefaults = useMemo(() => {
+    if (!data) return false;
+    return (
+      appliedGrowthRate !== data.growthRateUsed ||
+      discountRate !== 0.06 ||
+      terminalGrowth !== 0.025
+    );
+  }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
+
+  const showTerminalVersusDiscountWarning = useMemo(() => {
+    if (!canValuate || !data) return false;
+    if (liveValuation.intrinsicValue !== null) return false;
+    if (!slidersAdjustedFromDefaults) return false;
+    return discountRate - terminalGrowth <= 0.005;
+  }, [
+    canValuate,
+    data,
+    liveValuation.intrinsicValue,
+    slidersAdjustedFromDefaults,
+    discountRate,
+    terminalGrowth,
+  ]);
 
   const extremeValuationBannerText = useMemo(() => {
     if (!canValuate || liveValuation.margin === null) return null;
@@ -356,6 +406,12 @@ export function StockPageContent({ symbol }: Props) {
                         ? formatCurrencyDisplay(liveValuation.intrinsicValue)
                         : "—"}
                     </p>
+                    {showTerminalVersusDiscountWarning ? (
+                      <p className="mt-3 text-xs leading-relaxed text-[#A69486]">
+                        Terminal growth rate must be lower than the discount
+                        rate.
+                      </p>
+                    ) : null}
                     {unreliableEstimate ? (
                       <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
                         {STOCK_PAGE_COPY.unreliableEstimate}
@@ -419,14 +475,14 @@ export function StockPageContent({ symbol }: Props) {
                   type="button"
                   onClick={() => setAssumptionsOpen((o) => !o)}
                   aria-expanded={assumptionsOpen}
-                  className="flex w-full items-center justify-between gap-3 py-2 text-left text-sm text-intrinsic-secondary transition-colors hover:text-intrinsic-ink"
+                  className="group relative flex w-full items-center justify-center rounded-full border border-[#A69486] bg-[#EDE8DF] py-2 pl-6 pr-12 text-center text-sm font-medium text-[#5a4a3f] transition-colors duration-200 ease-out hover:bg-[#d9d3c9]"
                 >
                   <span>Adjust assumptions</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
-                    className={`h-4 w-4 shrink-0 text-intrinsic-secondary transition-transform duration-200 ${
+                    className={`absolute right-4 top-1/2 h-4 w-4 shrink-0 -translate-y-1/2 text-[#5a4a3f] transition-transform duration-200 ease-out ${
                       assumptionsOpen ? "rotate-180" : ""
                     }`}
                     aria-hidden
@@ -451,16 +507,16 @@ export function StockPageContent({ symbol }: Props) {
                           <Tooltip text="The expected annual growth in cash flows. We use analyst consensus estimates where available, falling back to historical revenue growth for smaller or less-covered stocks." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
-                          {formatPercentOneDecimal(growthRate * 100)}
+                          {formatPercentOneDecimal(appliedGrowthRate * 100)}
                         </span>
                       </div>
                       <input
                         type="range"
                         className="intrinsic-assumption-range"
-                        min={0}
-                        max={0.3}
+                        min={growthSliderMin}
+                        max={growthSliderMax}
                         step={0.005}
-                        value={growthRate}
+                        value={appliedGrowthRate}
                         onChange={(e) =>
                           setGrowthRate(Number(e.target.value))
                         }
@@ -546,43 +602,49 @@ export function StockPageContent({ symbol }: Props) {
 
             {canValuate ? (
               <section
-                className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light/90 px-6 py-5 sm:rounded-3xl sm:px-8 sm:py-6"
+                className="py-1"
                 aria-label={STOCK_PAGE_COPY.modelAssumptionsTitle}
               >
-                <p className="text-center text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
+                <p className="mb-3 text-center text-xs font-medium uppercase tracking-widest text-intrinsic-secondary">
                   {STOCK_PAGE_COPY.modelAssumptionsTitle}
                 </p>
-                <dl className="mt-4 grid gap-2 text-sm text-intrinsic-secondary sm:grid-cols-2 sm:gap-x-8 sm:gap-y-2 sm:text-base">
-                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                    <dt className="self-start">Growth rate</dt>
-                    <dd className="text-right sm:text-left">
-                      <div className="tabular-nums text-intrinsic-ink/90">
-                        {formatPercentOneDecimal(growthRate * 100)}
-                      </div>
-                      <div className="mt-0.5 text-xs font-normal text-[#A69486]">
-                        {growthSourceCaption(data.growthSource)}
-                      </div>
-                    </dd>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:flex sm:flex-nowrap sm:justify-between sm:gap-0">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 border-b border-intrinsic-secondary/10 pb-4 sm:border-b-0 sm:border-r sm:border-intrinsic-secondary/15 sm:pb-0 sm:pr-5">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-intrinsic-secondary/90">
+                      Growth rate
+                    </span>
+                    <span className="text-sm tabular-nums text-intrinsic-ink">
+                      {formatPercentOneDecimal(appliedGrowthRate * 100)}
+                    </span>
+                    <span className="text-xs text-[#A69486]">
+                      {growthSourceShortLabel(data.growthSource)}
+                    </span>
                   </div>
-                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                    <dt>Discount rate</dt>
-                    <dd className="tabular-nums text-intrinsic-ink/90">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 border-b border-intrinsic-secondary/10 pb-4 sm:border-b-0 sm:border-r sm:border-intrinsic-secondary/15 sm:px-5 sm:pb-0">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-intrinsic-secondary/90">
+                      Discount rate
+                    </span>
+                    <span className="text-sm tabular-nums text-intrinsic-ink">
                       {formatPercentOneDecimal(discountRate * 100)}
-                    </dd>
+                    </span>
                   </div>
-                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                    <dt>Terminal growth</dt>
-                    <dd className="tabular-nums text-intrinsic-ink/90">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 border-b border-intrinsic-secondary/10 pb-4 sm:border-b-0 sm:border-r sm:border-intrinsic-secondary/15 sm:px-5 sm:pb-0">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-intrinsic-secondary/90">
+                      Terminal growth
+                    </span>
+                    <span className="text-sm tabular-nums text-intrinsic-ink">
                       {formatPercentOneDecimal(terminalGrowth * 100)}
-                    </dd>
+                    </span>
                   </div>
-                  <div className="flex justify-between gap-4 sm:justify-start sm:gap-8">
-                    <dt>Projection period</dt>
-                    <dd className="tabular-nums text-intrinsic-ink/90">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 sm:pl-5">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-intrinsic-secondary/90">
+                      Period
+                    </span>
+                    <span className="text-sm tabular-nums text-intrinsic-ink">
                       {DCF_ASSUMPTIONS.projectionYears} years
-                    </dd>
+                    </span>
                   </div>
-                </dl>
+                </div>
               </section>
             ) : null}
 
