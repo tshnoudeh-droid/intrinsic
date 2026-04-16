@@ -13,8 +13,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Payload includes DCF outputs, `unavailableReason` when intrinsic value is null,
-  // and key stats from Yahoo (`summaryDetail` + `defaultKeyStatistics` + quote fallbacks).
+  // DCF, unit normalization (shares + FCF vs market cap), growth selection, and
+  // intrinsic sanity checks live in `computeStockPayloadFromYahoo` (server logs:
+  // UNITS CHECK, GROWTH RATE, SANITY CHECK FAILED).
   const payload = await computeStockPayloadFromYahoo(symbol);
   if (!payload) {
     return NextResponse.json(

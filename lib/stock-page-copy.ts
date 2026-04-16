@@ -45,4 +45,8 @@ export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
     "We couldn't retrieve shares outstanding data for this stock. This is sometimes the case for smaller or internationally listed companies.",
   insufficient_data:
     "Not enough financial data to generate a reliable valuation for this stock.",
+  calculation_error:
+    "The valuation result failed a sanity check against the reported price and was discarded. This can happen when underlying financial figures are scaled inconsistently.",
+  negative_result:
+    "The model produced a negative intrinsic value, which is not shown as a usable estimate.",
 };

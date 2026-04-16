@@ -52,19 +52,101 @@ function computeRevenueCagrRaw(
   return raw;
 }
 
-/**
- * PRIMARY: Yahoo `financialData.revenueGrowth` (analyst consensus forward revenue growth).
- * SECONDARY: 2-year revenue YoY (existing helper), capped at 10% for fallback.
- * DEFAULT: 5%.
- */
+/** yahoo-finance2: shares outstanding should be actual share count; repair obvious scale errors. */
+function normalizeSharesOutstanding(raw: number | null): number | null {
+  if (raw === null || !Number.isFinite(raw) || raw <= 0) return null;
+  let s = raw;
+  if (s < 1_000_000) s *= 1_000_000;
+  if (s > 100_000_000_000_000) s /= 1_000_000;
+  return s;
+}
+
+/** Align FCF scale with market cap when Yahoo mixes units. */
+function normalizeFcfAgainstMarketCap(
+  fcf: number,
+  marketCap: number | null,
+): number {
+  if (!Number.isFinite(fcf)) return fcf;
+  if (marketCap === null || !Number.isFinite(marketCap) || marketCap <= 0) {
+    return fcf;
+  }
+  const y = fcf / marketCap;
+  if (y > 0.5) return fcf / 1_000_000;
+  // When statement history is empty we often fall back to `financialData.freeCashflow`, which
+  // can be off by ~10× vs `marketCap` (typical FCF yields are ~3–15%).
+  if (y > 0.25 && y <= 0.5) return fcf / 10;
+  if (y < 0.0001) return fcf * 1_000_000;
+  return fcf;
+}
+
+function extractAnalystTrendRow(earningsTrend: unknown): {
+  row: unknown;
+  period: string;
+} | null {
+  if (!earningsTrend || typeof earningsTrend !== "object") return null;
+  const trend = (earningsTrend as { trend?: unknown }).trend;
+  if (!Array.isArray(trend)) return null;
+  for (const period of ["+5y", "+1y"] as const) {
+    const row = trend.find(
+      (t) =>
+        t &&
+        typeof t === "object" &&
+        (t as { period?: string }).period === period,
+    );
+    if (row) return { row, period };
+  }
+  return null;
+}
+
+/** OPTION A: +5y analyst growth; OPTION B: revenueGrowth; OPTION C: historical; OPTION D: default. */
 function computeGrowthRateAndSource(
+  earningsTrend: unknown,
   revenueGrowthRaw: unknown,
   revenueCagrRaw: number | null,
   fcfPositive: boolean,
-): { growthRateUsed: number; growthSource: GrowthSource } {
-  const analyst = asGrowthDecimal(revenueGrowthRaw);
-  if (analyst !== null && analyst >= 0 && analyst <= 0.3) {
-    return { growthRateUsed: analyst, growthSource: "analyst" };
+): {
+  growthRateUsed: number;
+  growthSource: GrowthSource;
+  earningsTrendGrowthLog: string;
+} {
+  const trendPick = extractAnalystTrendRow(earningsTrend);
+  let earningsTrendGrowthLog = "n/a";
+  if (trendPick && typeof trendPick.row === "object") {
+    const r = trendPick.row as {
+      earningsEstimate?: { growth?: unknown };
+      revenueEstimate?: { growth?: unknown };
+    };
+    const eg = asGrowthDecimal(r.earningsEstimate?.growth);
+    const rg = asGrowthDecimal(r.revenueEstimate?.growth);
+    earningsTrendGrowthLog = JSON.stringify({
+      period: trendPick.period,
+      earningsEstimateGrowth: r.earningsEstimate?.growth,
+      revenueEstimateGrowth: r.revenueEstimate?.growth,
+      parsedEarnings: eg,
+      parsedRevenue: rg,
+    });
+    const fromTrend = eg ?? rg;
+    if (fromTrend !== null && fromTrend >= 0) {
+      return {
+        growthRateUsed: Math.min(fromTrend, 0.3),
+        growthSource: "analyst",
+        earningsTrendGrowthLog,
+      };
+    }
+  } else if (earningsTrend && typeof earningsTrend === "object") {
+    const t = (earningsTrend as { trend?: unknown }).trend;
+    earningsTrendGrowthLog = Array.isArray(t)
+      ? "no +5y/+1y row in trend"
+      : "trend not an array";
+  }
+
+  const analystB = asGrowthDecimal(revenueGrowthRaw);
+  if (analystB !== null && analystB >= 0) {
+    return {
+      growthRateUsed: Math.min(analystB, 0.3),
+      growthSource: "analyst",
+      earningsTrendGrowthLog,
+    };
   }
 
   if (revenueCagrRaw !== null && Number.isFinite(revenueCagrRaw)) {
@@ -74,12 +156,17 @@ function computeGrowthRateAndSource(
     } else {
       rate = Math.min(revenueCagrRaw, 0.1);
     }
-    return { growthRateUsed: rate, growthSource: "historical" };
+    return {
+      growthRateUsed: rate,
+      growthSource: "historical",
+      earningsTrendGrowthLog,
+    };
   }
 
   return {
     growthRateUsed: DEFAULT_GROWTH,
     growthSource: "default",
+    earningsTrendGrowthLog,
   };
 }
 
@@ -95,7 +182,7 @@ function runTwoStageDcf(
   baseCashFlow: number,
   growthRate: number,
   sharesOutstanding: number,
-): number | null {
+): { perShare: number; totalPresentValue: number } | null {
   if (
     !Number.isFinite(baseCashFlow) ||
     baseCashFlow <= 0 ||
@@ -126,9 +213,10 @@ function runTwoStageDcf(
 
   if (!Number.isFinite(pvTerminal)) return null;
 
-  const total = sumPv + pvTerminal;
-  const intrinsic = total / sharesOutstanding;
-  return Number.isFinite(intrinsic) ? intrinsic : null;
+  const totalPresentValue = sumPv + pvTerminal;
+  const perShare = totalPresentValue / sharesOutstanding;
+  if (!Number.isFinite(perShare)) return null;
+  return { perShare, totalPresentValue };
 }
 
 export type YahooStockPayload = {
@@ -169,6 +257,7 @@ export async function computeStockPayloadFromYahoo(
           "incomeStatementHistory",
           "cashflowStatementHistory",
           "summaryDetail",
+          "earningsTrend",
         ],
       }),
       yahooFinance.quote(symbol),
@@ -184,6 +273,7 @@ export async function computeStockPayloadFromYahoo(
     const sd = summary.summaryDetail;
     const inc = summary.incomeStatementHistory?.incomeStatementHistory;
     const cfHist = summary.cashflowStatementHistory?.cashflowStatements;
+    const earningsTrend = summary.earningsTrend;
 
     const price =
       num(fd?.currentPrice) ??
@@ -195,9 +285,18 @@ export async function computeStockPayloadFromYahoo(
 
     const name = String((quote as { shortName?: string }).shortName ?? symbol);
 
-    const sharesOutstanding = num(dks?.sharesOutstanding);
+    const quoteRecord = quote as Record<string, unknown>;
+    const marketCap = firstFiniteNum(
+      sd?.marketCap,
+      dks?.marketCap,
+      quoteRecord.marketCap,
+    );
+
+    const sharesOutstanding = normalizeSharesOutstanding(
+      num(dks?.sharesOutstanding),
+    );
     const forwardEps = num(dks?.forwardEps);
-    const freeCashflowAnnual = num(fd?.freeCashflow);
+    const freeCashflowAnnualRaw = num(fd?.freeCashflow);
 
     const fcfByYear: number[] = [];
     if (Array.isArray(cfHist) && cfHist.length > 0) {
@@ -213,16 +312,26 @@ export async function computeStockPayloadFromYahoo(
       }
     }
 
-    let averagedFcf: number | null = null;
+    let averagedFcfRaw: number | null = null;
     if (fcfByYear.length > 0) {
-      averagedFcf =
+      averagedFcfRaw =
         fcfByYear.reduce((a, b) => a + b, 0) / fcfByYear.length;
-      if (!Number.isFinite(averagedFcf)) averagedFcf = null;
+      if (!Number.isFinite(averagedFcfRaw)) averagedFcfRaw = null;
     }
 
+    const averagedFcfForModel =
+      averagedFcfRaw !== null && averagedFcfRaw > 0
+        ? normalizeFcfAgainstMarketCap(averagedFcfRaw, marketCap)
+        : null;
+
+    const freeCashflowForModel =
+      freeCashflowAnnualRaw !== null && freeCashflowAnnualRaw > 0
+        ? normalizeFcfAgainstMarketCap(freeCashflowAnnualRaw, marketCap)
+        : null;
+
     const fcfPositiveForGrowth =
-      (averagedFcf !== null && averagedFcf > 0) ||
-      (freeCashflowAnnual !== null && freeCashflowAnnual > 0);
+      (averagedFcfRaw !== null && averagedFcfRaw > 0) ||
+      (freeCashflowAnnualRaw !== null && freeCashflowAnnualRaw > 0);
 
     let revenueCagrRaw: number | null = null;
     if (Array.isArray(inc) && inc.length >= 2) {
@@ -236,20 +345,34 @@ export async function computeStockPayloadFromYahoo(
       );
     }
 
-    const { growthRateUsed, growthSource } = computeGrowthRateAndSource(
+    const {
+      growthRateUsed,
+      growthSource,
+      earningsTrendGrowthLog,
+    } = computeGrowthRateAndSource(
+      earningsTrend,
       fd?.revenueGrowth,
       revenueCagrRaw,
       fcfPositiveForGrowth,
     );
 
-    let cashFlow: number | null = null;
-    let fcfReported: number | null = averagedFcf;
+    console.log("GROWTH RATE:", {
+      symbol,
+      growthRate: growthRateUsed,
+      growthSource,
+      rawRevenueGrowth: fd?.revenueGrowth,
+      earningsTrendGrowth: earningsTrendGrowthLog,
+    });
 
-    if (averagedFcf !== null && averagedFcf > 0) {
-      cashFlow = averagedFcf;
-    } else if (freeCashflowAnnual !== null && freeCashflowAnnual > 0) {
-      cashFlow = freeCashflowAnnual;
-      fcfReported = freeCashflowAnnual;
+    let cashFlow: number | null = null;
+    let fcfReported: number | null = averagedFcfRaw;
+
+    if (averagedFcfForModel !== null && averagedFcfForModel > 0) {
+      cashFlow = averagedFcfForModel;
+      fcfReported = averagedFcfForModel;
+    } else if (freeCashflowForModel !== null && freeCashflowForModel > 0) {
+      cashFlow = freeCashflowForModel;
+      fcfReported = freeCashflowForModel;
     } else if (
       forwardEps !== null &&
       forwardEps > 0 &&
@@ -262,6 +385,7 @@ export async function computeStockPayloadFromYahoo(
 
     let intrinsicValue: number | null = null;
     let marginOfSafety: number | null = null;
+    let intrinsicBeforeSanity: number | null = null;
 
     if (
       cashFlow !== null &&
@@ -269,11 +393,15 @@ export async function computeStockPayloadFromYahoo(
       sharesOutstanding !== null &&
       sharesOutstanding > 0
     ) {
-      intrinsicValue = runTwoStageDcf(
+      const dcf = runTwoStageDcf(
         cashFlow,
         growthRateUsed,
         sharesOutstanding,
       );
+      if (dcf !== null) {
+        intrinsicBeforeSanity = dcf.perShare;
+        intrinsicValue = dcf.perShare;
+      }
       if (
         intrinsicValue !== null &&
         Number.isFinite(intrinsicValue) &&
@@ -282,6 +410,41 @@ export async function computeStockPayloadFromYahoo(
         marginOfSafety = ((intrinsicValue - price) / price) * 100;
         if (!Number.isFinite(marginOfSafety)) marginOfSafety = null;
       }
+    }
+
+    const fcfForUnitsLog = cashFlow;
+    const fcfYieldForLog =
+      fcfForUnitsLog !== null &&
+      marketCap !== null &&
+      marketCap > 0 &&
+      Number.isFinite(fcfForUnitsLog / marketCap)
+        ? fcfForUnitsLog / marketCap
+        : null;
+
+    console.log("UNITS CHECK:", {
+      symbol,
+      fcf: fcfForUnitsLog,
+      sharesOutstanding,
+      marketCap,
+      fcfYield: fcfYieldForLog,
+      intrinsicValueBeforeCheck:
+        intrinsicBeforeSanity !== null &&
+        sharesOutstanding !== null &&
+        sharesOutstanding > 0
+          ? intrinsicBeforeSanity
+          : null,
+    });
+
+    let unavailableReason: UnavailableReason | null = null;
+    if (intrinsicValue !== null && price > 0 && intrinsicValue > price * 25) {
+      console.log("SANITY CHECK FAILED:", symbol, intrinsicValue, price);
+      intrinsicValue = null;
+      marginOfSafety = null;
+      unavailableReason = "calculation_error";
+    } else if (intrinsicValue !== null && intrinsicValue < 0) {
+      intrinsicValue = null;
+      marginOfSafety = null;
+      unavailableReason = "negative_result";
     }
 
     let diagnosticEarnings: number | null = null;
@@ -305,10 +468,9 @@ export async function computeStockPayloadFromYahoo(
     }
 
     const diagnosticCashFlow: number | null =
-      averagedFcf ?? freeCashflowAnnual;
+      averagedFcfRaw ?? freeCashflowAnnualRaw;
 
-    let unavailableReason: UnavailableReason | null = null;
-    if (intrinsicValue === null) {
+    if (intrinsicValue === null && unavailableReason === null) {
       const so = sharesOutstanding;
       if (diagnosticCashFlow === null && diagnosticEarnings === null) {
         unavailableReason = "no_cash_flow_data";
@@ -325,13 +487,6 @@ export async function computeStockPayloadFromYahoo(
         unavailableReason = "insufficient_data";
       }
     }
-
-    const quoteRecord = quote as Record<string, unknown>;
-    const marketCap = firstFiniteNum(
-      sd?.marketCap,
-      dks?.marketCap,
-      quoteRecord.marketCap,
-    );
     const peRatio = firstFiniteNum(sd?.trailingPE, dks?.trailingPE);
     const forwardPE = firstFiniteNum(sd?.forwardPE, dks?.forwardPE);
     const revenueGrowth = asGrowthDecimal(fd?.revenueGrowth);

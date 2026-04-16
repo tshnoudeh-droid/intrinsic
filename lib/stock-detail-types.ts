@@ -2,7 +2,9 @@ export type UnavailableReason =
   | "no_cash_flow_data"
   | "negative_cash_flow"
   | "no_shares_data"
-  | "insufficient_data";
+  | "insufficient_data"
+  | "calculation_error"
+  | "negative_result";
 
 /** How the default growth rate was chosen (server-side). */
 export type GrowthSource = "analyst" | "historical" | "default";

@@ -53,7 +53,9 @@ function isUnavailableReasonField(
     v === "no_cash_flow_data" ||
     v === "negative_cash_flow" ||
     v === "no_shares_data" ||
-    v === "insufficient_data"
+    v === "insufficient_data" ||
+    v === "calculation_error" ||
+    v === "negative_result"
   );
 }
 
