@@ -31,6 +31,8 @@ export type StockDetailPayload = {
   revenueGrowth: number | null;
   week52High: number | null;
   week52Low: number | null;
+  /** Context for regulated / high-debt Canadian names; null when not applicable. */
+  regulatoryNote?: string | null;
 };
 
 export type StockApiError = {

@@ -1,42 +1,9 @@
 "use client";
 
-import { Show, useUser } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { SearchBar } from "@/components/SearchBar";
 
 export default function Home() {
-  const { isSignedIn, isLoaded } = useUser();
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchFadeIn, setSearchFadeIn] = useState(false);
-
-  const displaySearch =
-    showSearch || (isLoaded && Boolean(isSignedIn));
-
-  const guestRevealSearch =
-    showSearch && !(isLoaded && isSignedIn);
-
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      setSearchFadeIn(true);
-      return;
-    }
-    if (!guestRevealSearch) {
-      setSearchFadeIn(false);
-      return;
-    }
-    setSearchFadeIn(false);
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSearchFadeIn(true));
-    });
-    return () => cancelAnimationFrame(id);
-  }, [guestRevealSearch, isLoaded, isSignedIn]);
-
-  const handleContinueAsGuest = useCallback(() => {
-    setShowSearch(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">
       <section className="flex flex-col items-center pb-16 text-center sm:pb-20 lg:pb-24">
@@ -49,23 +16,6 @@ export default function Home() {
             you understand whether a stock is overvalued or undervalued — before
             you buy or sell.
           </p>
-
-          {displaySearch ? (
-            <div
-              id="landing-search"
-              className={`mt-10 w-full max-w-xl scroll-mt-24 transition-opacity duration-300 ease-out ${
-                guestRevealSearch
-                  ? searchFadeIn
-                    ? "opacity-100"
-                    : "opacity-0"
-                  : "opacity-100"
-              }`}
-            >
-              <SearchBar
-                autoFocus={Boolean(guestRevealSearch && searchFadeIn)}
-              />
-            </div>
-          ) : null}
         </div>
 
         <div className="mt-16 w-full sm:mt-20 lg:mt-24">
@@ -152,13 +102,12 @@ export default function Home() {
             >
               Sign in
             </Link>
-            <button
-              type="button"
-              onClick={handleContinueAsGuest}
+            <Link
+              href="/explore"
               className="text-center text-sm text-[#A69486] underline-offset-4 hover:underline"
             >
               Continue as guest →
-            </button>
+            </Link>
           </div>
         </Show>
 

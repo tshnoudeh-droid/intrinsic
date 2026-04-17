@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { HistoryPoint, HistoryRange } from "@/lib/history-types";
 import { CACHE_HEADERS_NO_STORE } from "@/lib/http-cache-headers";
+import { normalizeSymbol } from "@/lib/symbol-normalize";
 import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
@@ -47,10 +48,11 @@ function toISODateKey(d: Date): string {
 type Bar = { date: Date; price: number };
 
 export async function GET(request: NextRequest) {
-  const symbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
+  const rawSymbol = request.nextUrl.searchParams.get("symbol")?.trim() ?? "";
+  const symbol = normalizeSymbol(rawSymbol);
   const rawRange = request.nextUrl.searchParams.get("range");
 
-  if (!symbol) {
+  if (!rawSymbol) {
     return NextResponse.json(
       { error: "Symbol is required" },
       { status: 400, headers: CACHE_HEADERS_NO_STORE },

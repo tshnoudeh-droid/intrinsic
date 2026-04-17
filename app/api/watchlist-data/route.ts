@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CACHE_HEADERS_NO_STORE } from "@/lib/http-cache-headers";
+import { normalizeSymbol } from "@/lib/symbol-normalize";
 import { computeStockPayloadFromYahoo } from "@/lib/yahoo-stock-payload";
 import { valuationLabelFromMargin } from "@/lib/valuation-label";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     ...new Set(
       raw
         .split(",")
-        .map((s) => s.trim().toUpperCase())
+        .map((s) => normalizeSymbol(s.trim()))
         .filter(Boolean),
     ),
   ];

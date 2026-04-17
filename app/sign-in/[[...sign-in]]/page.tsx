@@ -6,7 +6,7 @@ export default function SignInPage() {
       className="min-h-screen flex items-center justify-center"
       style={{ background: '#EDE8DF' }}
     >
-      <SignIn />
+      <SignIn forceRedirectUrl="/explore" />
     </main>
   )
 }

@@ -83,7 +83,10 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     isNullishFiniteNumber(o.forwardPE) &&
     isNullishFiniteNumber(o.revenueGrowth) &&
     isNullishFiniteNumber(o.week52High) &&
-    isNullishFiniteNumber(o.week52Low)
+    isNullishFiniteNumber(o.week52Low) &&
+    (o.regulatoryNote === undefined ||
+      o.regulatoryNote === null ||
+      typeof o.regulatoryNote === "string")
   );
 }
 
@@ -459,6 +462,15 @@ export function StockPageContent({ symbol }: Props) {
               </section>
               </>
             )}
+
+            {data.regulatoryNote ? (
+              <div
+                className="border-l-[3px] border-[#A69486] bg-[#FAF8F4] p-4 text-sm leading-relaxed text-[#5a4a3f] rounded-r-lg"
+                role="note"
+              >
+                {data.regulatoryNote}
+              </div>
+            ) : null}
 
             <KeyStats
               marketCap={data.marketCap}
