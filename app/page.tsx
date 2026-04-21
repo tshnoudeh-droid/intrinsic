@@ -11,12 +11,10 @@ function HomeWithRedirect() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (searchParams.get("home") === "1") return;
-    if (isSignedIn) {
+    if (isLoaded && isSignedIn && !searchParams.get("home")) {
       router.replace("/explore");
     }
-  }, [isLoaded, isSignedIn, router, searchParams]);
+  }, [isLoaded, isSignedIn]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">

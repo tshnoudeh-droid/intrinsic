@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function WatchlistPage() {
+export default async function WatchlistPage() {
+  const { userId } = await auth();
+  if (userId === null) {
+    redirect("/sign-in");
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-16 text-center sm:py-20">
       <p className="text-pretty text-base leading-relaxed text-intrinsic-secondary sm:text-lg">
