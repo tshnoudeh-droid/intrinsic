@@ -68,9 +68,12 @@ export default function ExplorePage() {
       style={{ background: "#EDE8DF" }}
     >
       <div className="mx-auto w-full max-w-[640px]">
-        <p className="mb-8 text-sm" style={{ color: "#A69486" }}>
+        <h2
+          className="mb-6 text-center text-6xl font-bold tracking-tight sm:text-7xl"
+          style={{ color: "#1a1a1a" }}
+        >
           Intrinsic
-        </p>
+        </h2>
 
         <h1 className="mb-2 text-center text-3xl font-semibold text-intrinsic-ink">
           {heading}
@@ -117,15 +120,13 @@ export default function ExplorePage() {
           ))}
         </div>
 
-        <p className="mt-12 text-center text-xs" style={{ color: "#A69486" }}>
-          <Link
-            href="/"
-            className="transition-colors hover:text-intrinsic-ink/80"
-            style={{ color: "#A69486" }}
-          >
-            ← Back to home
-          </Link>
-        </p>
+        <Link
+          href={isSignedIn ? "/?home=1" : "/"}
+          className="mt-12 block text-center text-xs transition-colors hover:text-intrinsic-ink/80"
+          style={{ color: "#A69486" }}
+        >
+          ← Back to home
+        </Link>
       </div>
     </div>
   );

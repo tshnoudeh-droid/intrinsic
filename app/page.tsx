@@ -30,6 +30,14 @@ function HomeWithRedirect() {
             you understand whether a stock is overvalued or undervalued — before
             you buy or sell.
           </p>
+          {isLoaded && isSignedIn ? (
+            <Link
+              href="/explore"
+              className="mt-8 inline-flex rounded-full bg-[#A69486] px-6 py-2 text-sm font-medium text-white transition-opacity hover:opacity-95"
+            >
+              Go to app →
+            </Link>
+          ) : null}
         </div>
 
         <div className="mt-16 w-full sm:mt-20 lg:mt-24">
@@ -126,9 +134,14 @@ function HomeWithRedirect() {
         </Show>
 
         <Show when="signed-in">
-          <p className="text-center text-base text-intrinsic-ink">
-            Welcome back. Start searching.
-          </p>
+          <div className="flex justify-center">
+            <Link
+              href="/explore"
+              className="inline-flex rounded-full bg-[#A69486] px-6 py-2 text-sm font-medium text-white transition-opacity hover:opacity-95"
+            >
+              Continue to Intrinsic →
+            </Link>
+          </div>
         </Show>
       </section>
     </div>
