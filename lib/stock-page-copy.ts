@@ -15,8 +15,6 @@ export const STOCK_PAGE_COPY = {
     "Intrinsic values are estimates based on simplified financial models and should not be considered financial advice.",
   modelAssumptionsTitle: "Model assumptions",
   explanationSectionTitle: "How to read this",
-  tfsaNote:
-    "For Canadian investors using a TFSA, a margin of safety above 15% is often preferred for long-term investing.",
   unreliableEstimate:
     "Estimate may be unreliable due to data limitations.",
   valuationUnavailableDcfNote:
@@ -49,4 +47,6 @@ export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
     "The valuation result failed a sanity check against the reported price and was discarded. This can happen when underlying financial figures are scaled inconsistently.",
   negative_result:
     "The model produced a negative intrinsic value, which is not shown as a usable estimate.",
+  terminal_rate_too_close:
+    "The discount rate is too close to the terminal growth rate for a stable terminal value. Adjust assumptions or try a different discount rate.",
 };

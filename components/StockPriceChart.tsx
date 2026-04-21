@@ -204,7 +204,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light p-4 shadow-md shadow-black/[0.04] ring-1 ring-black/[0.03] sm:rounded-3xl sm:p-6">
+      <div className="relative overflow-hidden rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light p-4 shadow-md shadow-black/[0.04] ring-1 ring-black/[0.03] sm:rounded-3xl sm:p-6">
         {loading ? (
           <p className="py-16 text-center text-sm text-intrinsic-secondary">
             Loading chart...
@@ -218,7 +218,7 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
             No chart data available
           </p>
         ) : (
-          <div className="h-[260px] w-full min-w-0 sm:h-[300px]">
+          <div className="h-[260px] w-full min-w-0 pb-7 sm:h-[300px] sm:pb-8">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
@@ -280,10 +280,25 @@ export function StockPriceChart({ symbol, intrinsicValue }: Props) {
             </ResponsiveContainer>
           </div>
         )}
-        {!loading && points.length > 0 && intrinsicValue !== null ? (
-          <p className="mt-4 text-center text-xs text-intrinsic-secondary/90">
-            Dashed line: intrinsic value
-          </p>
+        {!loading && points.length > 0 ? (
+          <div className="pointer-events-none absolute bottom-3 right-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs text-intrinsic-secondary/80 sm:bottom-4 sm:right-6">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-px w-5 bg-[#1a1a1a]"
+                aria-hidden
+              />
+              Price
+            </span>
+            {intrinsicValue !== null && Number.isFinite(intrinsicValue) ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block w-5 border-t border-dashed border-[#A69486]"
+                  aria-hidden
+                />
+                Intrinsic value
+              </span>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

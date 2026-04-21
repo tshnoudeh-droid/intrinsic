@@ -1,9 +1,23 @@
 "use client";
 
-import { Show } from "@clerk/nextjs";
+import { Show, useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 
-export default function Home() {
+function HomeWithRedirect() {
+  const { isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (searchParams.get("home") === "1") return;
+    if (isSignedIn) {
+      router.replace("/explore");
+    }
+  }, [isLoaded, isSignedIn, router, searchParams]);
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">
       <section className="flex flex-col items-center pb-16 text-center sm:pb-20 lg:pb-24">
@@ -118,5 +132,13 @@ export default function Home() {
         </Show>
       </section>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeWithRedirect />
+    </Suspense>
   );
 }

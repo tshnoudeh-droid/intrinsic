@@ -55,7 +55,20 @@ function isUnavailableReasonField(
     v === "no_shares_data" ||
     v === "insufficient_data" ||
     v === "calculation_error" ||
-    v === "negative_result"
+    v === "negative_result" ||
+    v === "terminal_rate_too_close"
+  );
+}
+
+function isCashFlowSourceField(
+  v: unknown,
+): v is StockDetailPayload["cashFlowSource"] {
+  return (
+    v === null ||
+    v === "freeCashflow" ||
+    v === "computed" ||
+    v === "operatingOnly" ||
+    v === "earnings"
   );
 }
 
@@ -76,6 +89,7 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     typeof o.discountRateUsed === "number" &&
     isNullableNumber(o.intrinsicValue) &&
     isNullableNumber(o.cashFlowUsed) &&
+    isCashFlowSourceField(o.cashFlowSource) &&
     isNullableNumber(o.sharesOutstanding) &&
     isUnavailableReasonField(o.unavailableReason) &&
     isNullishFiniteNumber(o.marketCap) &&
@@ -84,6 +98,7 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     isNullishFiniteNumber(o.revenueGrowth) &&
     isNullishFiniteNumber(o.week52High) &&
     isNullishFiniteNumber(o.week52Low) &&
+    isNullishFiniteNumber(o.regularMarketTime) &&
     (o.regulatoryNote === undefined ||
       o.regulatoryNote === null ||
       typeof o.regulatoryNote === "string")
@@ -259,13 +274,32 @@ export function StockPageContent({ symbol }: Props) {
   }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
 
   const explanationText = useMemo(() => {
-    if (!data || liveValuation.margin === null) return null;
+    if (
+      !data ||
+      liveValuation.margin === null ||
+      liveValuation.label === null ||
+      liveValuation.intrinsicValue === null
+    ) {
+      return null;
+    }
     return buildValuationExplanation(
+      data.name,
       liveValuation.margin,
       appliedGrowthRate,
+      data.growthSource,
       discountRate,
+      liveValuation.label,
+      data.price,
+      liveValuation.intrinsicValue,
     );
-  }, [data, liveValuation.margin, appliedGrowthRate, discountRate]);
+  }, [
+    data,
+    liveValuation.margin,
+    liveValuation.label,
+    liveValuation.intrinsicValue,
+    appliedGrowthRate,
+    discountRate,
+  ]);
 
   const unreliableEstimate = useMemo(() => {
     if (!data || liveValuation.intrinsicValue === null) return false;
@@ -321,10 +355,10 @@ export function StockPageContent({ symbol }: Props) {
     <div className="flex w-full flex-1 flex-col items-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
       <div className="w-full max-w-4xl">
         <Link
-          href="/"
+          href="/explore"
           className="mb-8 inline-flex text-xs font-medium tracking-wide text-intrinsic-secondary/75 transition-colors duration-200 ease-out hover:text-intrinsic-ink sm:mb-10"
         >
-          ← Back to home
+          ← Back to search
         </Link>
 
         {loading ? (
@@ -358,9 +392,30 @@ export function StockPageContent({ symbol }: Props) {
                   className="lg:max-w-[220px]"
                 />
               </div>
-              <p className="text-center text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:text-5xl lg:col-start-1 lg:row-start-3 lg:text-left">
-                {formatCurrencyDisplay(data.price)}
-              </p>
+              <div className="text-center lg:col-start-1 lg:row-start-3 lg:text-left">
+                <p className="text-4xl font-semibold tabular-nums tracking-tight text-intrinsic-ink sm:text-5xl">
+                  {formatCurrencyDisplay(data.price)}
+                </p>
+                {data.regularMarketTime !== null &&
+                Number.isFinite(data.regularMarketTime) ? (
+                  <p
+                    className="mt-1 text-xs font-normal tabular-nums"
+                    style={{ color: "#A69486" }}
+                  >
+                    As of{" "}
+                    {new Date(data.regularMarketTime * 1000).toLocaleTimeString(
+                      "en-US",
+                      {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZone: "America/New_York",
+                        timeZoneName: "short",
+                      },
+                    )}{" "}
+                    · 15-min delay
+                  </p>
+                ) : null}
+              </div>
             </header>
 
             <section className="min-w-0">
@@ -604,9 +659,6 @@ export function StockPageContent({ symbol }: Props) {
                 <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-6 text-left sm:rounded-3xl sm:px-8 sm:py-7">
                   <p className="text-base leading-relaxed text-intrinsic-ink">
                     {explanationText}
-                  </p>
-                  <p className="mt-4 text-xs leading-relaxed text-intrinsic-secondary/90 sm:text-sm">
-                    {STOCK_PAGE_COPY.tfsaNote}
                   </p>
                 </div>
               </div>

@@ -1,13 +1,28 @@
 /**
- * Normalize ticker symbols for Yahoo Finance: dots in class tickers (e.g. BRK.B)
- * become hyphens (BRK-B). TSX `.TO` suffix is preserved.
+ * Normalize ticker symbols for Yahoo Finance.
+ * TSX class shares (RCI.B.TO → RCI-B.TO), US class (BRK.B → BRK-B), .TO / .V preserved.
  */
 export function normalizeSymbol(symbol: string): string {
-  if (symbol.includes(".")) {
-    if (symbol.endsWith(".TO") || symbol.endsWith(".to")) {
-      return symbol.toUpperCase();
-    }
-    return symbol.replace(".", "-").toUpperCase();
+  const upper = symbol.toUpperCase();
+
+  const tsxClassMatch = upper.match(/^([A-Z]+)\.([A-Z])\.TO$/);
+  if (tsxClassMatch) {
+    return `${tsxClassMatch[1]}-${tsxClassMatch[2]}.TO`;
   }
-  return symbol.toUpperCase();
+
+  const tsxVentureClassMatch = upper.match(/^([A-Z]+)\.([A-Z])\.V$/);
+  if (tsxVentureClassMatch) {
+    return `${tsxVentureClassMatch[1]}-${tsxVentureClassMatch[2]}.V`;
+  }
+
+  const usClassMatch = upper.match(/^([A-Z]+)\.([A-Z])$/);
+  if (usClassMatch) {
+    return `${usClassMatch[1]}-${usClassMatch[2]}`;
+  }
+
+  if (upper.endsWith(".TO") || upper.endsWith(".V")) {
+    return upper;
+  }
+
+  return upper;
 }

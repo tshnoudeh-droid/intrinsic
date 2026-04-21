@@ -4,10 +4,18 @@ export type UnavailableReason =
   | "no_shares_data"
   | "insufficient_data"
   | "calculation_error"
-  | "negative_result";
+  | "negative_result"
+  | "terminal_rate_too_close";
 
 /** How the default growth rate was chosen (server-side). */
 export type GrowthSource = "analyst" | "historical" | "default";
+
+/** How base cash flow for the server DCF snapshot was chosen. */
+export type CashFlowSource =
+  | "freeCashflow"
+  | "computed"
+  | "operatingOnly"
+  | "earnings";
 
 export type StockDetailPayload = {
   symbol: string;
@@ -21,6 +29,8 @@ export type StockDetailPayload = {
   discountRateUsed: number;
   /** Cash flow passed into DCF after validation (FCF from reported, else net income), or null. */
   cashFlowUsed: number | null;
+  /** How `cashFlowUsed` was derived for the default snapshot. */
+  cashFlowSource: CashFlowSource | null;
   /** Share count from basic metric (millions × 1e6), after validation, or null. */
   sharesOutstanding: number | null;
   unavailableReason: UnavailableReason | null;
@@ -31,6 +41,8 @@ export type StockDetailPayload = {
   revenueGrowth: number | null;
   week52High: number | null;
   week52Low: number | null;
+  /** Unix seconds of last regular-hours trade (Yahoo quote). */
+  regularMarketTime: number | null;
   /** Context for regulated / high-debt Canadian names; null when not applicable. */
   regulatoryNote?: string | null;
 };

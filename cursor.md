@@ -10,13 +10,15 @@ The app is designed to be:
 - Beginner-friendly
 - Built using real financial data
 
+**Supported markets (V1):** US and Canadian exchanges only (NYSE, NASDAQ, TSX, TSX-V, NEO). Search results are filtered accordingly.
+
 ---
 
 ## Core Features (V1 Scope)
 
 1. Stock Search
 - Autocomplete search bar
-- Supports TSX, NYSE, NASDAQ
+- Filtered to NYSE, NASDAQ, TSX, TSX-V (and related Finnhub exchange codes); common stock only
 - User can search by ticker or company name
 
 2. Stock Page
@@ -35,11 +37,23 @@ Displays:
 
 4. Valuation Engine
 - Smart Simplified DCF model
-- Uses real financial data (Free Cash Flow preferred)
-- Uses default assumptions:
-  - Growth rate
-  - Discount rate
-  - Terminal growth rate
+- Uses real financial data with explicit cash-flow priority:
+  1. `financialData.freeCashflow` (Yahoo) when positive
+  2. Computed from cash flow statements: operating cash flow − |capex| (when free cash flow is unavailable or not positive)
+  3. `financialData.operatingCashflow` alone when capex is not available
+  4. Earnings fallback: `defaultKeyStatistics.trailingEps` × shares outstanding (last resort)
+- Server response includes `cashFlowSource`: `freeCashflow` | `computed` | `operatingOnly` | `earnings`
+- Default assumptions:
+  - **Growth rate**
+    - **Primary:** `earningsTrend` row with `period === "+5y"`, using `earningsEstimate.growth`; if missing, same from `"+1y"`; then `financialData.revenueGrowth` (capped 0–30%); then historical revenue CAGR (capped at 10%); then **default** 5%
+  - **Discount rate**
+    - **Default:** 6%
+    - **Slider range:** 4% to 12%
+    - **Rationale:** ~30-year US Treasury yield plus a small equity risk premium
+  - **Terminal growth:** 2.5% (unchanged)
+  - **Projection years:** 5 (unchanged)
+- Symbol normalization converts TSX class tickers (e.g. `RCI.B.TO` → `RCI-B.TO`) and US class shares (`BRK.B` → `BRK-B`).
+- Intrinsic value is guarded by a trailing P/E sanity check (vs. P/E–implied value) in addition to other data checks.
 
 ---
 
@@ -85,20 +99,10 @@ Color Palette:
 
 The valuation model MUST follow these rules:
 
-1. Use Free Cash Flow (FCF) if available
-2. If FCF is unavailable, fallback to earnings
+1. Cash flow priority: `freeCashflow` → statement-based FCF → `operatingCashflow` only → earnings (trailing EPS × shares). Negative reported FCF is skipped for that tier.
+2. If no usable cash flow path exists, handle gracefully (no crash).
 
-3. Use default assumptions:
-- **Growth rate**
-  - **Primary:** analyst forward revenue estimate from Yahoo `financialData.revenueGrowth` (capped 0–30%)
-  - **Fallback:** historical 2-year revenue CAGR (capped at 10%)
-  - **Default** if both unavailable: 5%
-- **Discount rate**
-  - **Default:** 6%
-  - **Slider range:** 4% to 12%
-  - **Rationale:** ~30-year US Treasury yield plus a small equity risk premium
-- **Terminal growth:** 2.5% (unchanged)
-- **Projection years:** 5 (unchanged)
+3. Use default assumptions as documented above under “Valuation Engine”.
 
 4. Keep model simple:
 - Max 1–2 growth stages
@@ -123,7 +127,7 @@ The valuation model MUST follow these rules:
 
 5. If data is missing:
    - Handle gracefully
-   - Do NOT crash
+   - DO NOT crash
 
 6. Cache data when appropriate to avoid rate limits
 
