@@ -193,7 +193,7 @@ export function SearchBar({
 
   const inputClass = isCompact
     ? "w-full rounded-xl border border-intrinsic-secondary/25 bg-intrinsic-light px-3 py-2.5 text-sm text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg"
-    : "w-full rounded-2xl border border-intrinsic-secondary/25 bg-intrinsic-light px-4 py-3.5 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow,transform] duration-200 ease-out focus:border-intrinsic-secondary/40 focus:ring-2 focus:ring-intrinsic-accent focus:ring-offset-2 focus:ring-offset-intrinsic-bg sm:px-5 sm:py-4 sm:text-lg";
+    : "w-full rounded-2xl border border-[#d4cdc6] bg-white pl-5 pr-4 py-4 text-base text-intrinsic-ink shadow-sm placeholder:text-intrinsic-secondary/70 outline-none transition-[border-color,box-shadow] duration-200 ease-out focus:border-[#A69486] focus:shadow-md";
 
   return (
     <div className={`${wrapperClass} ${className}`.trim()}>
