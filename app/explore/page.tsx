@@ -64,30 +64,65 @@ export default function ExplorePage() {
 
   return (
     <div
-      className="flex min-h-[calc(100dvh-5rem)] w-full flex-col items-center justify-center px-4 py-12"
+      className="flex min-h-screen w-full flex-col items-center justify-center px-4 py-16"
       style={{ background: "#EDE8DF" }}
     >
-      <div className="mx-auto w-full max-w-[640px]">
+      {/* Ambient background glows */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "600px",
+          height: "600px",
+          background:
+            "radial-gradient(circle, rgba(222,240,232,0.5) 0%, transparent 70%)",
+          filter: "blur(80px)",
+          zIndex: -1,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          bottom: 0,
+          right: 0,
+          width: "500px",
+          height: "500px",
+          background:
+            "radial-gradient(circle, rgba(166,148,134,0.15) 0%, transparent 70%)",
+          filter: "blur(80px)",
+          zIndex: -1,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div className="mx-auto w-full max-w-[580px]">
         <h2
-          className="mb-6 text-center text-6xl font-bold tracking-tight sm:text-7xl"
+          className="mb-6 text-center text-7xl font-bold tracking-tight"
           style={{ color: "#1a1a1a" }}
         >
           Intrinsic
         </h2>
 
-        <h1 className="mb-2 text-center text-3xl font-semibold text-intrinsic-ink">
+        <h1
+          className="mb-2 text-center text-2xl font-normal"
+          style={{ color: "#5a4a3f" }}
+        >
           {heading}
         </h1>
-        <p className="mb-8 text-center text-sm" style={{ color: "#A69486" }}>
+        <p className="mt-1 text-center text-sm" style={{ color: "#A69486" }}>
           Search any stock to see its intrinsic value.
         </p>
 
-        <div className="w-full">
+        <div className="mt-6 w-full">
           <SearchBar autoFocus className="max-w-none" />
         </div>
 
         <div
-          className="mt-2 flex items-center justify-center gap-2 text-xs"
+          className="mt-3 flex items-center justify-center gap-2 text-xs"
           style={{ color: "#A69486" }}
         >
           <span
@@ -101,7 +136,7 @@ export default function ExplorePage() {
         </div>
 
         <p
-          className="mb-2 mt-6 text-center text-xs font-normal uppercase tracking-wide"
+          className="mb-2 mt-5 text-center text-xs font-normal uppercase tracking-wide"
           style={{ color: "#A69486" }}
         >
           Popular stocks
