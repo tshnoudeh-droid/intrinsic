@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { IntrinsicChat } from "@/components/IntrinsicChat";
 import { KeyStats } from "@/components/KeyStats";
+import type { ChatStockContext } from "@/lib/chat-context";
 import type {
   GrowthSource,
   StockDetailPayload,
 } from "@/lib/stock-detail-types";
+import type { StockNewsItem } from "@/lib/stock-news";
 import { calculateDCF } from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
@@ -160,6 +163,7 @@ export function StockPageContent({ symbol }: Props) {
   const [data, setData] = useState<StockDetailPayload | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [news, setNews] = useState<StockNewsItem[]>([]);
 
   const [growthRate, setGrowthRate] = useState(0.05);
   const [discountRate, setDiscountRate] = useState(0.06);
@@ -208,6 +212,30 @@ export function StockPageContent({ symbol }: Props) {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/news?symbol=${encodeURIComponent(symbol)}`, {
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (cancelled || !res.ok) return;
+        const json: unknown = await res.json().catch(() => null);
+        if (cancelled || !json || typeof json !== "object") return;
+        const items = (json as { news?: unknown }).news;
+        if (Array.isArray(items)) {
+          setNews(items as StockNewsItem[]);
+        }
+      })
+      .catch(() => {
+        // Chat still works without news context.
       });
 
     return () => {
@@ -272,6 +300,31 @@ export function StockPageContent({ symbol }: Props) {
       margin !== null ? valuationLabelFromMargin(margin) : null;
     return { intrinsicValue, margin, label };
   }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
+
+  const chatStockContext = useMemo<ChatStockContext | null>(() => {
+    if (!data) return null;
+    return {
+      symbol: data.symbol,
+      name: data.name,
+      price: data.price,
+      intrinsicValue: liveValuation.intrinsicValue,
+      marginOfSafety: liveValuation.margin,
+      valuationLabel: liveValuation.label,
+      growthRate: appliedGrowthRate,
+      growthSource: data.growthSource,
+      discountRate,
+      terminalGrowth,
+      cashFlowSource: data.cashFlowSource,
+      marketCap: data.marketCap,
+      peRatio: data.peRatio,
+      forwardPE: data.forwardPE,
+      revenueGrowth: data.revenueGrowth,
+      week52High: data.week52High,
+      week52Low: data.week52Low,
+      regulatoryNote: data.regulatoryNote ?? null,
+      news,
+    };
+  }, [data, liveValuation, appliedGrowthRate, discountRate, terminalGrowth, news]);
 
   const explanationText = useMemo(() => {
     if (
@@ -718,6 +771,10 @@ export function StockPageContent({ symbol }: Props) {
           </div>
         ) : null}
       </div>
+
+      {chatStockContext ? (
+        <IntrinsicChat stockContext={chatStockContext} />
+      ) : null}
     </div>
   );
 }
