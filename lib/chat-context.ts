@@ -28,6 +28,38 @@ export type ChatStockContext = {
   news: StockNewsItem[];
 };
 
+const MAX_STRING_FIELD_LENGTH = 200;
+const MAX_NEWS_ITEMS = 5;
+const MAX_NEWS_TITLE_LENGTH = 300;
+
+function clampString(v: string, max: number): string {
+  return v.length > max ? v.slice(0, max) : v;
+}
+
+/**
+ * Client-supplied context is fully attacker-controllable (it's just what the
+ * page rendered, sent back over the wire) — clamp string/array sizes before
+ * they're interpolated into the system prompt so a crafted request can't
+ * inflate token cost or pad the prompt with an unbounded payload.
+ */
+export function sanitizeChatStockContext(
+  ctx: ChatStockContext,
+): ChatStockContext {
+  return {
+    ...ctx,
+    symbol: clampString(ctx.symbol, MAX_STRING_FIELD_LENGTH),
+    name: clampString(ctx.name, MAX_STRING_FIELD_LENGTH),
+    regulatoryNote: ctx.regulatoryNote
+      ? clampString(ctx.regulatoryNote, MAX_STRING_FIELD_LENGTH * 2)
+      : null,
+    news: ctx.news.slice(0, MAX_NEWS_ITEMS).map((item) => ({
+      title: clampString(item.title, MAX_NEWS_TITLE_LENGTH),
+      publisher: clampString(item.publisher, MAX_STRING_FIELD_LENGTH),
+      publishedAt: item.publishedAt,
+    })),
+  };
+}
+
 function fmtPct(v: number): string {
   return `${(v * 100).toFixed(1)}%`;
 }

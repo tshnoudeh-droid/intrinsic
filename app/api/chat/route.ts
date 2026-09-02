@@ -1,6 +1,10 @@
 import { groq } from "@ai-sdk/groq";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { buildChatSystemPrompt, type ChatStockContext } from "@/lib/chat-context";
+import {
+  buildChatSystemPrompt,
+  sanitizeChatStockContext,
+  type ChatStockContext,
+} from "@/lib/chat-context";
 import {
   checkChatRateLimit,
   clientIdentifierFromRequest,
@@ -13,6 +17,13 @@ export const maxDuration = 30;
 // free-tier equivalent. Verify at console.groq.com/docs/models if retired.
 const GROQ_MODEL = "openai/gpt-oss-120b";
 
+// Bounds on client-supplied input — this endpoint is open to guests, so a
+// single request must not be able to blow up token cost or hold the
+// connection with an unbounded payload.
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_TEXT_LENGTH = 2000;
+const MAX_OUTPUT_TOKENS = 800;
+
 type ChatRequestBody = {
   messages: UIMessage[];
   stockContext: ChatStockContext;
@@ -22,6 +33,19 @@ function isChatRequestBody(json: unknown): json is ChatRequestBody {
   if (!json || typeof json !== "object") return false;
   const o = json as Record<string, unknown>;
   return Array.isArray(o.messages) && typeof o.stockContext === "object" && o.stockContext !== null;
+}
+
+function messagesWithinLimits(messages: UIMessage[]): boolean {
+  if (messages.length > MAX_MESSAGES) return false;
+  for (const message of messages) {
+    if (!Array.isArray(message.parts)) return false;
+    for (const part of message.parts) {
+      if (part.type === "text" && part.text.length > MAX_MESSAGE_TEXT_LENGTH) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 export async function POST(request: Request) {
@@ -38,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   const json: unknown = await request.json().catch(() => null);
-  if (!isChatRequestBody(json)) {
+  if (!isChatRequestBody(json) || !messagesWithinLimits(json.messages)) {
     return new Response(
       JSON.stringify({ error: true, message: "Invalid request" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
@@ -49,8 +73,9 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: groq(GROQ_MODEL),
-    system: buildChatSystemPrompt(stockContext),
+    system: buildChatSystemPrompt(sanitizeChatStockContext(stockContext)),
     messages: await convertToModelMessages(messages),
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
   });
 
   return result.toUIMessageStreamResponse();
