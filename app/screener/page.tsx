@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ScreenerResultsTable } from "@/components/ScreenerResultsTable";
 import type { ScreenerStockRow } from "@/lib/screener-types";
 
@@ -17,6 +17,7 @@ type ScreenerApiResponse = {
 };
 
 export default function ScreenerPage() {
+  const inputId = useId();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ScreenerStockRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,12 +75,17 @@ export default function ScreenerPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <label htmlFor={inputId} className="sr-only">
+            Screener query
+          </label>
           <input
+            id={inputId}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="margin of safety above 20%, revenue growth above 10%, P/E below 30"
-            className="flex-1 rounded-full border border-intrinsic-secondary/25 bg-intrinsic-light px-5 py-3 text-sm text-intrinsic-ink placeholder:text-intrinsic-secondary/60 focus:border-[#A69486] focus:outline-none"
+            disabled={loading}
+            className="flex-1 rounded-full border border-intrinsic-secondary/25 bg-intrinsic-light px-5 py-3 text-sm text-intrinsic-ink placeholder:text-intrinsic-secondary/60 focus:border-[#A69486] focus:outline-none disabled:opacity-40"
           />
           <button
             type="submit"
@@ -96,11 +102,12 @@ export default function ScreenerPage() {
               <button
                 key={example}
                 type="button"
+                disabled={loading}
                 onClick={() => {
                   setQuery(example);
                   void runQuery(example);
                 }}
-                className="rounded-full border border-intrinsic-secondary/30 px-3 py-1.5 text-xs text-intrinsic-secondary transition-colors hover:bg-intrinsic-bg"
+                className="rounded-full border border-intrinsic-secondary/30 px-3 py-1.5 text-xs text-intrinsic-secondary transition-colors hover:bg-intrinsic-bg disabled:opacity-40"
               >
                 {example}
               </button>
