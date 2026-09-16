@@ -34,36 +34,40 @@ export async function GET(request: NextRequest) {
   const failed: string[] = [];
 
   await processWithConcurrency(SCREENER_TICKERS, CONCURRENCY, async (ticker) => {
-    const payload = await computeStockPayloadFromYahoo(ticker.symbol);
-    if (!payload) {
+    try {
+      const payload = await computeStockPayloadFromYahoo(ticker.symbol);
+      if (!payload) {
+        failed.push(ticker.symbol);
+        return;
+      }
+
+      const valuationLabel =
+        payload.marginOfSafety !== null
+          ? valuationLabelFromMargin(payload.marginOfSafety)
+          : null;
+
+      const { error } = await supabase.from("screener_stocks").upsert({
+        symbol: payload.symbol,
+        name: payload.name,
+        exchange: ticker.exchange,
+        price: payload.price,
+        intrinsic_value: payload.intrinsicValue,
+        margin_of_safety: payload.marginOfSafety,
+        valuation_label: valuationLabel,
+        market_cap: payload.marketCap,
+        pe_ratio: payload.peRatio,
+        forward_pe: payload.forwardPE,
+        revenue_growth: payload.revenueGrowth,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        failed.push(ticker.symbol);
+      } else {
+        succeeded++;
+      }
+    } catch {
       failed.push(ticker.symbol);
-      return;
-    }
-
-    const valuationLabel =
-      payload.marginOfSafety !== null
-        ? valuationLabelFromMargin(payload.marginOfSafety)
-        : null;
-
-    const { error } = await supabase.from("screener_stocks").upsert({
-      symbol: payload.symbol,
-      name: payload.name,
-      exchange: ticker.exchange,
-      price: payload.price,
-      intrinsic_value: payload.intrinsicValue,
-      margin_of_safety: payload.marginOfSafety,
-      valuation_label: valuationLabel,
-      market_cap: payload.marketCap,
-      pe_ratio: payload.peRatio,
-      forward_pe: payload.forwardPE,
-      revenue_growth: payload.revenueGrowth,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      failed.push(ticker.symbol);
-    } else {
-      succeeded++;
     }
   });
 
