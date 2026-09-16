@@ -4,15 +4,9 @@ import { Redis } from "@upstash/redis";
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-const ratelimit =
+const redis =
   UPSTASH_URL && UPSTASH_TOKEN
-    ? new Ratelimit({
-        redis: new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }),
-        // 20 chat messages per hour per IP — generous for a real conversation,
-        // tight enough to protect the free Groq key from scripted abuse.
-        limiter: Ratelimit.slidingWindow(20, "1 h"),
-        prefix: "intrinsic:chat",
-      })
+    ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN })
     : null;
 
 export type RateLimitResult = {
@@ -26,18 +20,43 @@ export type RateLimitResult = {
  * instance). In production, missing Upstash config fails closed — otherwise
  * the free Groq key would be unprotected if the env vars were never set.
  */
-export async function checkChatRateLimit(
-  identifier: string,
-): Promise<RateLimitResult> {
-  if (!ratelimit) {
-    if (process.env.NODE_ENV === "production") {
-      return { success: false, remaining: 0, reset: 0 };
+function createRateLimiter(
+  prefix: string,
+  limit: number,
+  window: `${number} ${"s" | "m" | "h" | "d"}`,
+) {
+  const ratelimit = redis
+    ? new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(limit, window),
+        prefix,
+      })
+    : null;
+
+  return async function check(identifier: string): Promise<RateLimitResult> {
+    if (!ratelimit) {
+      if (process.env.NODE_ENV === "production") {
+        return { success: false, remaining: 0, reset: 0 };
+      }
+      return { success: true, remaining: limit, reset: 0 };
     }
-    return { success: true, remaining: 20, reset: 0 };
-  }
-  const { success, remaining, reset } = await ratelimit.limit(identifier);
-  return { success, remaining, reset };
+    const { success, remaining, reset } = await ratelimit.limit(identifier);
+    return { success, remaining, reset };
+  };
 }
+
+// 20 messages per hour per IP — generous for a real conversation, tight
+// enough to protect the free Groq key from scripted abuse.
+export const checkChatRateLimit = createRateLimiter("intrinsic:chat", 20, "1 h");
+
+// Screener queries also call Groq for NL parsing, so use a comparable
+// budget under a separate bucket — chat and screener usage shouldn't
+// compete for the same quota.
+export const checkScreenerRateLimit = createRateLimiter(
+  "intrinsic:screener",
+  20,
+  "1 h",
+);
 
 /**
  * `x-vercel-forwarded-for` is set by Vercel's edge network and cannot be
