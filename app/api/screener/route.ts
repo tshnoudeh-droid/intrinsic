@@ -48,7 +48,10 @@ export async function POST(request: Request) {
 
   const parsed = await parseScreenerQuery(json.query);
   if (!parsed.ok) {
-    return NextResponse.json({ error: true, message: parsed.reason });
+    return NextResponse.json(
+      { error: true, message: parsed.reason },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabaseServerClient();
