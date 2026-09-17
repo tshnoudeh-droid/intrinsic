@@ -5,7 +5,7 @@
 create table if not exists screener_stocks (
   symbol text primary key,
   name text not null,
-  exchange text not null,
+  exchange text not null, -- "US" or "TSX", set from lib/sp500-tsx60-tickers.ts
   price numeric not null,
   intrinsic_value numeric,
   margin_of_safety numeric,

@@ -11,6 +11,18 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const CONCURRENCY = 20;
+// Bounds the tail latency of a single Yahoo call so one hung request can't
+// stall an entire concurrency lane for the whole job.
+const PER_TICKER_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), ms),
+    ),
+  ]);
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -35,7 +47,10 @@ export async function GET(request: NextRequest) {
 
   await processWithConcurrency(SCREENER_TICKERS, CONCURRENCY, async (ticker) => {
     try {
-      const payload = await computeStockPayloadFromYahoo(ticker.symbol);
+      const payload = await withTimeout(
+        computeStockPayloadFromYahoo(ticker.symbol),
+        PER_TICKER_TIMEOUT_MS,
+      );
       if (!payload) {
         failed.push(ticker.symbol);
         return;

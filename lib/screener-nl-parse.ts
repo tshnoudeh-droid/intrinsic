@@ -47,6 +47,7 @@ function isValidFilter(f: unknown): f is ScreenerFilter {
   }
   if (o.field === "valuation_label") {
     return (
+      o.operator === "eq" &&
       typeof o.value === "string" &&
       (SCREENER_VALUATION_LABELS as readonly string[]).includes(o.value)
     );

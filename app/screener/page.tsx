@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { ScreenerResultsTable } from "@/components/ScreenerResultsTable";
-import type { ScreenerStockRow } from "@/lib/screener-types";
+import type { ScreenerFilter, ScreenerStockRow } from "@/lib/screener-types";
 
 const EXAMPLE_QUERIES = [
   "margin of safety above 20%, revenue growth above 10%, P/E below 30",
@@ -13,13 +13,45 @@ const EXAMPLE_QUERIES = [
 type ScreenerApiResponse = {
   error?: boolean;
   message?: string;
+  filters?: ScreenerFilter[];
   rows?: ScreenerStockRow[];
 };
+
+const OPERATOR_SYMBOLS: Record<ScreenerFilter["operator"], string> = {
+  gt: ">",
+  gte: "≥",
+  lt: "<",
+  lte: "≤",
+  eq: "=",
+};
+
+const FIELD_LABELS: Record<ScreenerFilter["field"], string> = {
+  margin_of_safety: "margin of safety",
+  valuation_label: "valuation",
+  market_cap: "market cap",
+  pe_ratio: "P/E",
+  forward_pe: "forward P/E",
+  revenue_growth: "revenue growth",
+  price: "price",
+};
+
+function formatFilter(filter: ScreenerFilter): string {
+  const field = FIELD_LABELS[filter.field] ?? filter.field;
+  const operator = OPERATOR_SYMBOLS[filter.operator] ?? filter.operator;
+  return `${field} ${operator} ${filter.value}`;
+}
+
+function formatFilters(filters: ScreenerFilter[]): string {
+  return filters.map(formatFilter).join(", ");
+}
 
 export default function ScreenerPage() {
   const inputId = useId();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ScreenerStockRow[] | null>(null);
+  const [appliedFilters, setAppliedFilters] = useState<ScreenerFilter[] | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -39,20 +71,24 @@ export default function ScreenerPage() {
       if (!json || typeof json !== "object") {
         setError("Something went wrong. Try again.");
         setRows(null);
+        setAppliedFilters(null);
         return;
       }
       const o = json as ScreenerApiResponse;
       if (o.error) {
         setError(o.message ?? "Something went wrong.");
         setRows(null);
+        setAppliedFilters(null);
         return;
       }
       const resultRows = Array.isArray(o.rows) ? o.rows : [];
       setRows(resultRows);
+      setAppliedFilters(Array.isArray(o.filters) ? o.filters : null);
       setLastUpdated(resultRows[0]?.updated_at ?? null);
     } catch {
       setError("Something went wrong. Try again.");
       setRows(null);
+      setAppliedFilters(null);
     } finally {
       setLoading(false);
     }
@@ -121,6 +157,11 @@ export default function ScreenerPage() {
 
         {rows !== null && !error ? (
           <div className="mt-8">
+            {appliedFilters && appliedFilters.length > 0 ? (
+              <p className="mb-2 text-xs text-intrinsic-secondary">
+                Screening for: {formatFilters(appliedFilters)}
+              </p>
+            ) : null}
             <div className="mb-3 flex items-center justify-between text-xs text-intrinsic-secondary">
               <span>
                 {rows.length} match{rows.length === 1 ? "" : "es"}
