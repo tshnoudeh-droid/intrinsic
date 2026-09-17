@@ -16,12 +16,20 @@ export function Navbar() {
     <>
       <header className="shrink-0 border-b border-intrinsic-secondary/15 bg-intrinsic-light/60 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-6 lg:px-8">
-          <Link
-            href={isSignedIn ? "/?home=1" : "/"}
-            className="text-lg font-medium tracking-tight text-intrinsic-ink transition-colors hover:text-intrinsic-secondary sm:text-xl"
-          >
-            Intrinsic
-          </Link>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Link
+              href={isSignedIn ? "/?home=1" : "/"}
+              className="text-lg font-medium tracking-tight text-intrinsic-ink transition-colors hover:text-intrinsic-secondary sm:text-xl"
+            >
+              Intrinsic
+            </Link>
+            <Link
+              href="/screener"
+              className="text-sm font-medium text-intrinsic-secondary transition-colors hover:text-intrinsic-ink"
+            >
+              Screener
+            </Link>
+          </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <Show when="signed-in">
               <div className="flex items-center gap-2 sm:gap-3">
