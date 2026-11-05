@@ -89,3 +89,11 @@ export function clientIdentifierFromRequest(request: Request): string {
   }
   return headers.get("x-real-ip") ?? "unknown";
 }
+
+// Company profiles call Groq only on a cache miss, so this is generous; when
+// exceeded the route still serves Yahoo data, just without a fresh AI summary.
+export const checkCompanyProfileRateLimit = createRateLimiter(
+  "intrinsic:company-profile",
+  60,
+  "1 h",
+);
