@@ -1,8 +1,12 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// KV_REST_API_* is what the Vercel Marketplace Upstash integration injects;
+// UPSTASH_REDIS_REST_* is kept as a fallback for manually configured envs.
+const UPSTASH_URL =
+  process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN =
+  process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const redis =
   UPSTASH_URL && UPSTASH_TOKEN
