@@ -28,7 +28,19 @@ Allowed operators: gt, gte, lt, lte, eq.
 Respond with ONLY JSON matching this shape, nothing else, no markdown code fence:
 {"filters":[{"field":"margin_of_safety","operator":"gte","value":20}]}
 
-If the query doesn't map to any of the allowed fields, respond with {"filters":[]}.`;
+Users often describe goals in everyday language instead of metrics. Translate those into reasonable proxy filters on the allowed fields rather than giving up. Guidelines:
+- "safe", "low risk", "stable", "trustworthy", "blue chip", "established": market_cap gte 50000000000 and pe_ratio lte 25
+- "cheap", "bargain", "good deal", "value": valuation_label eq "Undervalued" (optionally margin_of_safety gte 15)
+- "growth", "growing fast": revenue_growth gte 0.10
+- "steady/modest return of about X% a year": revenue_growth gte a value near X/2 as a decimal (e.g. 6% -> 0.03), plus margin_of_safety gte 0
+- "big company" / "small company": market_cap gte 10000000000 / market_cap lte 2000000000
+- "not overpriced", "reasonably priced": pe_ratio lte 25
+Combine multiple goals into multiple filters. Keep the list short (1-4 filters).
+
+Example: "something trustworthy in the long run, about 6% return annually, low risk"
+{"filters":[{"field":"market_cap","operator":"gte","value":50000000000},{"field":"pe_ratio","operator":"lte","value":25},{"field":"revenue_growth","operator":"gte","value":0.03},{"field":"margin_of_safety","operator":"gte","value":0}]}
+
+Only respond with {"filters":[]} if the query has nothing to do with picking stocks.`;
 
 function isValidFilter(f: unknown): f is ScreenerFilter {
   if (!f || typeof f !== "object") return false;
