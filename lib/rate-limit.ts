@@ -40,8 +40,15 @@ function createRateLimiter(
       }
       return { success: true, remaining: limit, reset: 0 };
     }
-    const { success, remaining, reset } = await ratelimit.limit(identifier);
-    return { success, remaining, reset };
+    try {
+      const { success, remaining, reset } = await ratelimit.limit(identifier);
+      return { success, remaining, reset };
+    } catch (error) {
+      // Redis unreachable (outage, deleted DB, DNS failure). Fail open so a
+      // rate-limiter outage degrades protection instead of 500ing the route.
+      console.error(`[rate-limit] ${prefix} check failed, allowing request`, error);
+      return { success: true, remaining: limit, reset: 0 };
+    }
   };
 }
 
