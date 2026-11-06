@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import type { QuoteSummaryResult } from "yahoo-finance2/modules/quoteSummary-iface";
 
 import type {
   CashFlowSource,
@@ -69,19 +70,23 @@ function normalizeSharesOutstanding(raw: number | null): number | null {
   return s;
 }
 
-/** Align FCF scale with market cap when Yahoo mixes units. */
+/**
+ * Data check: a cash flow above 25% or below 0.01% of market cap is treated
+ * as an implausible figure and that tier is skipped (null), so the next
+ * documented tier applies. Yahoo returns raw units, so the previous
+ * "repair" (÷1e6, ÷10, ×1e6) fabricated numbers — e.g. PSKY's 17.6B FCF on
+ * an 11B market cap became 17.6K, valuing it at $0.0008/share.
+ */
 function normalizeFcfAgainstMarketCap(
   fcf: number,
   marketCap: number | null,
-): number {
-  if (!Number.isFinite(fcf)) return fcf;
+): number | null {
+  if (!Number.isFinite(fcf)) return null;
   if (marketCap === null || !Number.isFinite(marketCap) || marketCap <= 0) {
     return fcf;
   }
   const y = fcf / marketCap;
-  if (y > 0.5) return fcf / 1_000_000;
-  if (y > 0.25 && y <= 0.5) return fcf / 10;
-  if (y < 0.0001) return fcf * 1_000_000;
+  if (y > 0.25 || y < 0.0001) return null;
   return fcf;
 }
 
@@ -256,24 +261,36 @@ export async function computeStockPayloadFromYahoo(
   symbol: string,
 ): Promise<YahooStockPayload | null> {
   try {
-    const [summary, quoteRaw] = await Promise.all([
-      yahooFinance.quoteSummary(symbol, {
-        modules: [
-          "financialData",
-          "defaultKeyStatistics",
-          "incomeStatementHistory",
-          "cashflowStatementHistory",
-          "summaryDetail",
-          "earningsTrend",
-        ],
-      }),
-      yahooFinance.quote(symbol),
+    // Schema validation is disabled: Yahoo intermittently returns e.g.
+    // `summaryDetail.currency: null` (BNY) or odd quote fields (WBD, PSKY),
+    // which made the whole symbol fail and left stale screener rows. Every
+    // field below is read through `num()` / type guards, so unvalidated data
+    // degrades to "missing" instead of crashing.
+    const [summaryRaw, quoteRaw] = await Promise.all([
+      yahooFinance.quoteSummary(
+        symbol,
+        {
+          modules: [
+            "financialData",
+            "defaultKeyStatistics",
+            "incomeStatementHistory",
+            "cashflowStatementHistory",
+            "summaryDetail",
+            "earningsTrend",
+          ],
+        },
+        { validateResult: false },
+      ),
+      yahooFinance.quote(symbol, {}, { validateResult: false }),
     ]);
+    if (!summaryRaw || typeof summaryRaw !== "object") return null;
+    const summary = summaryRaw as QuoteSummaryResult;
 
-    const quote = Array.isArray(quoteRaw) ? quoteRaw[0] : quoteRaw;
-    if (!quote || typeof quote !== "object") {
-      return null;
-    }
+    // Yahoo's quote endpoint returns nothing for some symbols (e.g. WBD,
+    // PSKY) while quoteSummary still works; fall back to summary fields.
+    const quoteFirst: unknown = Array.isArray(quoteRaw) ? quoteRaw[0] : quoteRaw;
+    const quote: object =
+      quoteFirst && typeof quoteFirst === "object" ? quoteFirst : {};
 
     const fd = summary.financialData;
     const dks = summary.defaultKeyStatistics;
@@ -296,7 +313,9 @@ export async function computeStockPayloadFromYahoo(
     // for Shopify, Barrick, CSU on the TSX) while price, market cap and
     // trailing EPS are in the listing currency. Convert cash flows to the
     // listing currency so per-share value is comparable with price.
-    const quoteCurrencyRaw = (quote as { currency?: unknown }).currency;
+    const quoteCurrencyRaw =
+      (quote as { currency?: unknown }).currency ??
+      (sd as { currency?: unknown } | undefined)?.currency;
     const financialCurrencyRaw = (fd as { financialCurrency?: unknown } | undefined)
       ?.financialCurrency;
     const fxRate = await fetchFxRate(
