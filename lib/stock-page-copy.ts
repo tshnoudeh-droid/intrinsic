@@ -49,4 +49,6 @@ export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
     "The model produced a negative intrinsic value, which is not shown as a usable estimate.",
   terminal_rate_too_close:
     "The discount rate is too close to the terminal growth rate for a stable terminal value. Adjust assumptions or try a different discount rate.",
+  fund_not_applicable:
+    "This is a fund, not a single company. It doesn't have its own cash flows to discount, so a DCF intrinsic value doesn't apply. Its value comes from the stocks or bonds it holds — look at its fees, holdings and price history instead.",
 };

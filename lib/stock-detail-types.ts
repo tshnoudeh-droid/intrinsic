@@ -5,7 +5,9 @@ export type UnavailableReason =
   | "insufficient_data"
   | "calculation_error"
   | "negative_result"
-  | "terminal_rate_too_close";
+  | "terminal_rate_too_close"
+  /** ETFs / mutual funds: a company DCF doesn't apply. */
+  | "fund_not_applicable";
 
 /** How the default growth rate was chosen (server-side). */
 export type GrowthSource = "analyst" | "historical" | "default";
@@ -20,6 +22,8 @@ export type CashFlowSource =
 export type StockDetailPayload = {
   symbol: string;
   name: string;
+  /** Yahoo quoteType ("EQUITY", "ETF", …); optional for older payloads. */
+  quoteType?: string | null;
   price: number;
   intrinsicValue: number | null;
   /** Growth rate (decimal) used in the DCF, e.g. 0.05 for 5%. */

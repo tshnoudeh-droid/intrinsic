@@ -59,7 +59,8 @@ function isUnavailableReasonField(
     v === "insufficient_data" ||
     v === "calculation_error" ||
     v === "negative_result" ||
-    v === "terminal_rate_too_close"
+    v === "terminal_rate_too_close" ||
+    v === "fund_not_applicable"
   );
 }
 
