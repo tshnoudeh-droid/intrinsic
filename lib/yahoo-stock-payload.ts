@@ -281,8 +281,12 @@ export async function computeStockPayloadFromYahoo(
       quoteRecord.marketCap,
     );
 
+    // `sharesOutstanding` is the listed share class only (e.g. BRK-B excludes
+    // Class A, GOOGL excludes GOOG); `impliedSharesOutstanding` is the
+    // all-class total Yahoo uses for market cap (marketCap / price), which is
+    // what a whole-company cash flow must be divided by.
     const sharesOutstanding = normalizeSharesOutstanding(
-      num(dks?.sharesOutstanding),
+      num(dks?.impliedSharesOutstanding) ?? num(dks?.sharesOutstanding),
     );
 
     const freeCashflowAnnualRaw = num(fd?.freeCashflow);
