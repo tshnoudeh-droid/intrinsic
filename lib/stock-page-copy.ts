@@ -29,6 +29,13 @@ export const STOCK_PAGE_COPY = {
     "Verify data quality before drawing conclusions.",
   valuationCardFairNote:
     "Price aligns closely with estimated cash flow value.",
+  aboutCompanyTitle: "About the company",
+  aboutFundTitle: "About the fund",
+  aboutLoadError: "Couldn't load the company description.",
+  fundBadge: "ETF",
+  fundValuationTitle: "Intrinsic value doesn't apply to funds",
+  fundDisclaimer:
+    "Fund data comes from Yahoo Finance and may lag the provider's own fact sheet. This is not financial advice.",
 } as const;
 
 export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
