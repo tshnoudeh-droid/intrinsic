@@ -143,6 +143,35 @@ function computeGrowthRateAndSource(
   };
 }
 
+const FX_CACHE_TTL_MS = 60 * 60 * 1000;
+const fxCache = new Map<string, { rate: number; at: number }>();
+
+/**
+ * Units of `quoteCurrency` per 1 unit of `financialCurrency` via Yahoo's FX
+ * quote (e.g. "USDCAD=X"). 1 when currencies match; null when unknown.
+ */
+async function fetchFxRate(
+  financialCurrency: string | null,
+  quoteCurrency: string | null,
+): Promise<number | null> {
+  if (!financialCurrency || !quoteCurrency) return 1;
+  const from = financialCurrency.toUpperCase();
+  const to = quoteCurrency.toUpperCase();
+  if (from === to) return 1;
+  const pair = `${from}${to}=X`;
+  const cached = fxCache.get(pair);
+  if (cached && Date.now() - cached.at < FX_CACHE_TTL_MS) return cached.rate;
+  try {
+    const q = await yahooFinance.quote(pair);
+    const rate = num((q as { regularMarketPrice?: unknown }).regularMarketPrice);
+    if (rate === null || rate <= 0) return null;
+    fxCache.set(pair, { rate, at: Date.now() });
+    return rate;
+  } catch {
+    return null;
+  }
+}
+
 function firstFiniteNum(...candidates: unknown[]): number | null {
   for (const c of candidates) {
     const n = num(c);
@@ -274,6 +303,20 @@ export async function computeStockPayloadFromYahoo(
 
     const name = String((quote as { shortName?: string }).shortName ?? symbol);
 
+    // Statement / financialData figures are in `financialCurrency` (e.g. USD
+    // for Shopify, Barrick, CSU on the TSX) while price, market cap and
+    // trailing EPS are in the listing currency. Convert cash flows to the
+    // listing currency so per-share value is comparable with price.
+    const quoteCurrencyRaw = (quote as { currency?: unknown }).currency;
+    const financialCurrencyRaw = (fd as { financialCurrency?: unknown } | undefined)
+      ?.financialCurrency;
+    const fxRate = await fetchFxRate(
+      typeof financialCurrencyRaw === "string" ? financialCurrencyRaw : null,
+      typeof quoteCurrencyRaw === "string" ? quoteCurrencyRaw : null,
+    );
+    const toQuoteCurrency = (x: number | null): number | null =>
+      x === null || fxRate === null ? null : x * fxRate;
+
     const quoteRecord = quote as Record<string, unknown>;
     const marketCap = firstFiniteNum(
       sd?.marketCap,
@@ -289,8 +332,8 @@ export async function computeStockPayloadFromYahoo(
       num(dks?.impliedSharesOutstanding) ?? num(dks?.sharesOutstanding),
     );
 
-    const freeCashflowAnnualRaw = num(fd?.freeCashflow);
-    const operatingCashflowFd = num(fd?.operatingCashflow);
+    const freeCashflowAnnualRaw = toQuoteCurrency(num(fd?.freeCashflow));
+    const operatingCashflowFd = toQuoteCurrency(num(fd?.operatingCashflow));
 
     const fcfByYear: number[] = [];
     if (Array.isArray(cfHist) && cfHist.length > 0) {
@@ -299,7 +342,9 @@ export async function computeStockPayloadFromYahoo(
           new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
       );
       for (const stmt of sortedCf.slice(0, 2)) {
-        const f = fcfFromCashflowRow(stmt as unknown as Record<string, unknown>);
+        const f = toQuoteCurrency(
+          fcfFromCashflowRow(stmt as unknown as Record<string, unknown>),
+        );
         if (f !== null && Number.isFinite(f) && f > 0) {
           fcfByYear.push(f);
         }
