@@ -15,7 +15,11 @@ import {
   passesIntrinsicSanityCheck,
 } from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
-import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
+import {
+  formatCurrencyDisplay,
+  formatMarginOfSafety,
+  formatPercentOneDecimal,
+} from "@/lib/format-display";
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
 import {
   STOCK_PAGE_COPY,
@@ -563,7 +567,7 @@ export function StockPageContent({ symbol }: Props) {
                                 : "text-intrinsic-ink"
                           }`}
                         >
-                          {formatPercentOneDecimal(liveValuation.margin)}
+                          {formatMarginOfSafety(liveValuation.margin)}
                         </p>
                       </div>
                       <div>
