@@ -138,11 +138,13 @@ export default function CompanyInfoButton({
       }
       close(false);
     };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
+    // Capture phase: the panel/trigger stop propagation at the React root,
+    // which would otherwise hide these events from a bubbling listener.
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("pointerdown", onPointer, true);
     return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("pointerdown", onPointer, true);
     };
   }, [open, close]);
 
