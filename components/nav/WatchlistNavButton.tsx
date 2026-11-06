@@ -38,7 +38,7 @@ export function WatchlistNavButton({ isSignedIn, onOpen }: Props) {
   const redirect = encodeURIComponent(pathname);
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="sm:relative">
       <button
         type="button"
         onClick={() => (isSignedIn ? onOpen() : setPromptOpen((o) => !o))}
@@ -54,7 +54,7 @@ export function WatchlistNavButton({ isSignedIn, onOpen }: Props) {
         <div
           role="dialog"
           aria-label="Sign in to use your watchlist"
-          className="absolute right-0 top-[calc(100%+10px)] z-50 w-[min(300px,calc(100vw-2rem))] rounded-2xl border border-intrinsic-secondary/20 bg-intrinsic-light p-4 text-left shadow-xl shadow-black/10"
+          className="absolute inset-x-4 top-[calc(100%+8px)] z-50 rounded-2xl sm:inset-x-auto sm:right-0 sm:top-[calc(100%+10px)] sm:w-[300px] border border-intrinsic-secondary/20 bg-intrinsic-light p-4 text-left shadow-xl shadow-black/10"
         >
           <p className="text-sm font-semibold text-intrinsic-ink">
             Save stocks to a watchlist
