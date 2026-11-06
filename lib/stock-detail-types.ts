@@ -34,6 +34,11 @@ export type StockDetailPayload = {
   /** Share count from basic metric (millions × 1e6), after validation, or null. */
   sharesOutstanding: number | null;
   unavailableReason: UnavailableReason | null;
+  /**
+   * Reference for the intrinsic sanity check (trailing EPS × P/E, else price).
+   * Live slider values above `MAX_INTRINSIC_TO_PE_IMPLIED` × this are discarded.
+   */
+  sanityReferenceValue?: number;
   marketCap: number | null;
   peRatio: number | null;
   forwardPE: number | null;

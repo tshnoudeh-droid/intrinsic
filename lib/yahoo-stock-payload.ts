@@ -5,14 +5,20 @@ import type {
   GrowthSource,
   UnavailableReason,
 } from "@/lib/stock-detail-types";
+import {
+  calculateDCF,
+  MAX_DEFAULT_PROJECTION_GROWTH,
+  passesIntrinsicSanityCheck,
+  peImpliedReferenceValue,
+} from "@/lib/calculate-dcf-client";
+import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
 import { marginOfSafetyPercent } from "@/lib/valuation-label";
 
 const yahooFinance = new YahooFinance();
 
-const DISCOUNT_RATE = 0.06;
-const TERMINAL_GROWTH_RATE = 0.025;
-const PROJECTION_YEARS = 5;
-const DEFAULT_GROWTH = 0.05;
+const DISCOUNT_RATE = DCF_ASSUMPTIONS.discountRate;
+const TERMINAL_GROWTH_RATE = DCF_ASSUMPTIONS.terminalGrowthRate;
+const DEFAULT_GROWTH = DCF_ASSUMPTIONS.growthRate;
 
 function safeFinite(x: unknown): x is number {
   return typeof x === "number" && Number.isFinite(x);
@@ -102,7 +108,7 @@ function earningsGrowthFrom5yOr1y(earningsTrend: unknown): number | null {
   return null;
 }
 
-function computeGrowthRateAndSource(
+function selectGrowthRateAndSource(
   earningsTrend: unknown,
   revenueGrowthRaw: unknown,
   revenueCagrRaw: number | null,
@@ -172,53 +178,34 @@ async function fetchFxRate(
   }
 }
 
+/** Documented growth-source priority, then the projection growth guard. */
+function computeGrowthRateAndSource(
+  earningsTrend: unknown,
+  revenueGrowthRaw: unknown,
+  revenueCagrRaw: number | null,
+  fcfPositive: boolean,
+): { growthRateUsed: number; growthSource: GrowthSource } {
+  const selected = selectGrowthRateAndSource(
+    earningsTrend,
+    revenueGrowthRaw,
+    revenueCagrRaw,
+    fcfPositive,
+  );
+  return {
+    ...selected,
+    growthRateUsed: Math.min(
+      selected.growthRateUsed,
+      MAX_DEFAULT_PROJECTION_GROWTH,
+    ),
+  };
+}
+
 function firstFiniteNum(...candidates: unknown[]): number | null {
   for (const c of candidates) {
     const n = num(c);
     if (n !== null) return n;
   }
   return null;
-}
-
-function runTwoStageDcf(
-  baseCashFlow: number,
-  growthRate: number,
-  sharesOutstanding: number,
-): { perShare: number; totalPresentValue: number } | null {
-  if (
-    !Number.isFinite(baseCashFlow) ||
-    baseCashFlow <= 0 ||
-    !Number.isFinite(sharesOutstanding) ||
-    sharesOutstanding <= 0
-  ) {
-    return null;
-  }
-
-  const g = growthRate;
-  const r = DISCOUNT_RATE;
-  const tg = TERMINAL_GROWTH_RATE;
-  const n = PROJECTION_YEARS;
-
-  if (r - tg < 0.01) return null;
-
-  let sumPv = 0;
-  for (let year = 1; year <= n; year++) {
-    const cfYear = baseCashFlow * (1 + g) ** year;
-    const pv = cfYear / (1 + r) ** year;
-    if (!Number.isFinite(pv)) return null;
-    sumPv += pv;
-  }
-
-  const lastCf = baseCashFlow * (1 + g) ** n;
-  const terminalValue = (lastCf * (1 + tg)) / (r - tg);
-  const pvTerminal = terminalValue / (1 + r) ** n;
-
-  if (!Number.isFinite(pvTerminal)) return null;
-
-  const totalPresentValue = sumPv + pvTerminal;
-  const perShare = totalPresentValue / sharesOutstanding;
-  if (!Number.isFinite(perShare)) return null;
-  return { perShare, totalPresentValue };
 }
 
 export type YahooStockPayload = {
@@ -233,6 +220,8 @@ export type YahooStockPayload = {
   cashFlowUsed: number | null;
   cashFlowSource: CashFlowSource | null;
   sharesOutstanding: number | null;
+  /** Reference value for the intrinsic sanity check (see calculate-dcf-client). */
+  sanityReferenceValue: number;
   fcf: number | null;
   dataSource: "yahoo-finance2";
   unavailableReason: UnavailableReason | null;
@@ -440,13 +429,15 @@ export async function computeStockPayloadFromYahoo(
       sharesOutstanding !== null &&
       sharesOutstanding > 0
     ) {
-      const dcf = runTwoStageDcf(
+      const dcf = calculateDCF({
         cashFlow,
-        growthRateUsed,
         sharesOutstanding,
-      );
+        growthRate: growthRateUsed,
+        discountRate: DISCOUNT_RATE,
+        terminalGrowthRate: TERMINAL_GROWTH_RATE,
+      });
       if (dcf !== null) {
-        intrinsicValue = dcf.perShare;
+        intrinsicValue = dcf;
       } else if (DISCOUNT_RATE - TERMINAL_GROWTH_RATE < 0.01) {
         unavailableReason = "terminal_rate_too_close";
       } else {
@@ -461,31 +452,19 @@ export async function computeStockPayloadFromYahoo(
       }
     }
 
-    if (intrinsicValue !== null && price > 0 && intrinsicValue > price * 25) {
-      intrinsicValue = null;
-      marginOfSafety = null;
-      unavailableReason = "calculation_error";
-    }
-
-    const trailingPE = num(sd?.trailingPE);
-    const trailingEpsForPe = firstFiniteNum(
-      sd?.trailingEps,
-      dks?.trailingEps,
+    // Trailing P/E sanity check, shared with the stock page's live sliders.
+    const sanityReferenceValue = peImpliedReferenceValue(
+      price,
+      firstFiniteNum(sd?.trailingEps, dks?.trailingEps),
+      num(sd?.trailingPE),
     );
     if (
       intrinsicValue !== null &&
-      trailingPE !== null &&
-      trailingPE >= 5 &&
-      trailingPE <= 200 &&
-      trailingEpsForPe !== null &&
-      Number.isFinite(trailingEpsForPe)
+      !passesIntrinsicSanityCheck(intrinsicValue, sanityReferenceValue)
     ) {
-      const peImpliedValue = trailingEpsForPe * trailingPE * 0.8;
-      if (intrinsicValue > peImpliedValue * 5) {
-        intrinsicValue = null;
-        marginOfSafety = null;
-        unavailableReason = "calculation_error";
-      }
+      intrinsicValue = null;
+      marginOfSafety = null;
+      unavailableReason = "calculation_error";
     }
 
     if (intrinsicValue !== null && intrinsicValue < 0) {
@@ -568,6 +547,7 @@ export async function computeStockPayloadFromYahoo(
         sharesOutstanding !== null && Number.isFinite(sharesOutstanding)
           ? sharesOutstanding
           : null,
+      sanityReferenceValue,
       fcf: fcfReported,
       dataSource: "yahoo-finance2",
       unavailableReason,

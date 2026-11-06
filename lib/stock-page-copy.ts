@@ -44,7 +44,7 @@ export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
   insufficient_data:
     "Not enough financial data to generate a reliable valuation for this stock.",
   calculation_error:
-    "The valuation result failed a sanity check against the reported price and was discarded. This can happen when underlying financial figures are scaled inconsistently.",
+    "The DCF estimate came out more than 3× what the market pays for this company's current earnings, so it was discarded as unreliable. This usually means the default assumptions don't fit this business (common for insurers, banks and cyclicals) or the underlying figures are inconsistent. Try a higher discount rate or lower growth below.",
   negative_result:
     "The model produced a negative intrinsic value, which is not shown as a usable estimate.",
   terminal_rate_too_close:
