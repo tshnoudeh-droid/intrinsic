@@ -1,0 +1,443 @@
+{
+ "capturedAt": "2026-11-05",
+ "fxUSDCAD": 1.40103,
+ "tickers": {
+  "CI": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 301.48,
+     "freeCashflow": 7980125184,
+     "operatingCashflow": 10277000192,
+     "revenueGrowth": 0.067,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 264240486,
+     "impliedSharesOutstanding": 264240486,
+     "trailingEps": 24.19
+    },
+    "summaryDetail": {
+     "marketCap": 79663226880,
+     "trailingPE": 12.463001,
+     "forwardPE": 9.002529,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.097600006
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 301.48,
+    "shortName": "The Cigna Group"
+   }
+  },
+  "NXPI": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 244.43,
+     "freeCashflow": 4086625024,
+     "operatingCashflow": 3800000000,
+     "revenueGrowth": 0.193,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 252052988,
+     "impliedSharesOutstanding": 252052988,
+     "trailingEps": 12.71
+    },
+    "summaryDetail": {
+     "marketCap": 61609312256,
+     "trailingPE": 19.231314,
+     "forwardPE": 13.326412,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.2087
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 244.43,
+    "shortName": "NXP Semiconductors N.V."
+   }
+  },
+  "DAL": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 85.36,
+     "freeCashflow": 2492124928,
+     "operatingCashflow": 8000000000,
+     "revenueGrowth": 0.211,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 657912380,
+     "impliedSharesOutstanding": 657912380,
+     "trailingEps": 5.01
+    },
+    "summaryDetail": {
+     "marketCap": 56159399936,
+     "trailingPE": 17.037924,
+     "forwardPE": 11.695699,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.4614
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 85.36,
+    "shortName": "Delta Air Lines, Inc."
+   }
+  },
+  "XOM": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 165.3,
+     "freeCashflow": 28896249856,
+     "operatingCashflow": 70588997632,
+     "revenueGrowth": 0.326,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 4079222444,
+     "impliedSharesOutstanding": 4079222444,
+     "trailingEps": 9.72
+    },
+    "summaryDetail": {
+     "marketCap": 674295513088,
+     "trailingPE": 17.006172,
+     "forwardPE": 13.759773,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": -0.1189
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 165.3,
+    "shortName": "ExxonMobil Holdings Corporation"
+   }
+  },
+  "BRK-B": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 572.33,
+     "freeCashflow": 71975247872,
+     "operatingCashflow": 46634000384,
+     "revenueGrowth": 0.1,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 1408035161,
+     "impliedSharesOutstanding": 2140709794,
+     "trailingEps": 39.76
+    },
+    "summaryDetail": {
+     "marketCap": 1225192505344,
+     "trailingPE": 14.394619,
+     "forwardPE": 25.51459,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": -0.0017
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 572.33,
+    "shortName": "Berkshire Hathaway Inc. New"
+   }
+  },
+  "BNY": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 147.49,
+     "operatingCashflow": 9367000064,
+     "revenueGrowth": 0.115,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 672898490,
+     "impliedSharesOutstanding": 672898490,
+     "trailingEps": 9.03
+    },
+    "summaryDetail": {
+     "marketCap": 99245801472,
+     "trailingPE": 16.333334,
+     "forwardPE": 14.128302,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.1069
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 147.49,
+    "shortName": "The Bank of New York Mellon Cor"
+   }
+  },
+  "AAPL": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 344.17,
+     "freeCashflow": 105658376192,
+     "operatingCashflow": 145096998912,
+     "revenueGrowth": 0.117,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 14532182000,
+     "impliedSharesOutstanding": 14532182000,
+     "trailingEps": 8.98
+    },
+    "summaryDetail": {
+     "marketCap": 5001541320704,
+     "trailingPE": 38.326283,
+     "forwardPE": 32.321957,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.19610001
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 344.17,
+    "shortName": "Apple Inc."
+   }
+  },
+  "MSFT": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 535.93,
+     "freeCashflow": 2994125056,
+     "operatingCashflow": 195877994496,
+     "revenueGrowth": 0.188,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 7426194552,
+     "impliedSharesOutstanding": 7426194552,
+     "trailingEps": 19.16
+    },
+    "summaryDetail": {
+     "marketCap": 3979920277504,
+     "trailingPE": 27.971294,
+     "forwardPE": 22.164799,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.2087
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 535.93,
+    "shortName": "Microsoft Corporation"
+   }
+  },
+  "SHOP.TO": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 201.23,
+     "freeCashflow": 1640999936,
+     "operatingCashflow": 2681999872,
+     "revenueGrowth": 0.316,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 1208456928,
+     "impliedSharesOutstanding": 1286522012,
+     "trailingEps": 2.26
+    },
+    "summaryDetail": {
+     "marketCap": 258886811648,
+     "trailingPE": 89.03982,
+     "forwardPE": 58.54956,
+     "currency": "CAD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.2925
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "CAD",
+    "regularMarketPrice": 201.23,
+    "shortName": "SHOPIFY INC"
+   }
+  },
+  "RY.TO": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 285.86,
+     "operatingCashflow": -83606003712,
+     "revenueGrowth": 0.089,
+     "financialCurrency": "CAD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 1384429799,
+     "impliedSharesOutstanding": 1384429799,
+     "trailingEps": 15.86
+    },
+    "summaryDetail": {
+     "marketCap": 395753095168,
+     "trailingPE": 18.023958,
+     "forwardPE": 15.990172,
+     "currency": "CAD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.090900004
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "CAD",
+    "regularMarketPrice": 285.86,
+    "shortName": "ROYAL BANK OF CANADA"
+   }
+  },
+  "TSLA": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 343.69,
+     "freeCashflow": 4967249920,
+     "operatingCashflow": 18709999616,
+     "revenueGrowth": -0.002,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 3952730153,
+     "impliedSharesOutstanding": 3952730153,
+     "trailingEps": 0.91
+    },
+    "summaryDetail": {
+     "marketCap": 1358513831936,
+     "trailingPE": 377.6813,
+     "forwardPE": 159.17322,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.24190001
+       }
+      }
+     ]
+    }
+   },
+   "quote": {
+    "currency": "USD",
+    "regularMarketPrice": 343.69,
+    "shortName": "Tesla, Inc."
+   }
+  },
+  "PSKY": {
+   "summary": {
+    "financialData": {
+     "currentPrice": 9.775,
+     "freeCashflow": 17593124864,
+     "operatingCashflow": 814000000,
+     "revenueGrowth": 0.009,
+     "financialCurrency": "USD"
+    },
+    "defaultKeyStatistics": {
+     "sharesOutstanding": 1093020754,
+     "impliedSharesOutstanding": 1124520841,
+     "trailingEps": -0.02
+    },
+    "summaryDetail": {
+     "marketCap": 10992190464,
+     "forwardPE": 11.745832,
+     "currency": "USD"
+    },
+    "earningsTrend": {
+     "trend": [
+      {
+       "period": "+1y",
+       "earningsEstimate": {
+        "growth": 0.569
+       }
+      }
+     ]
+    }
+   },
+   "quote": {}
+  }
+ }
+}
