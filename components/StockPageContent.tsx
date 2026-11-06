@@ -124,10 +124,10 @@ function valuationCardContextLine(
   if (label === "Fair") {
     return STOCK_PAGE_COPY.valuationCardFairNote;
   }
-  if (label === "Overvalued" && margin < -60) {
+  if (label === "Overvalued" && margin < -150) {
     return STOCK_PAGE_COPY.valuationCardOvervaluedExtremeNote;
   }
-  if (label === "Undervalued" && margin > 80) {
+  if (label === "Undervalued" && margin > 44) {
     return STOCK_PAGE_COPY.valuationCardUndervaluedStrongNote;
   }
   return null;
@@ -388,8 +388,8 @@ export function StockPageContent({ symbol }: Props) {
   const extremeValuationBannerText = useMemo(() => {
     if (!canValuate || liveValuation.margin === null) return null;
     const m = liveValuation.margin;
-    if (m < -60) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
-    if (m > 80) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
+    if (m < -150) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
+    if (m > 44) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
     return null;
   }, [canValuate, liveValuation.margin]);
 

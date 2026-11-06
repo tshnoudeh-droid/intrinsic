@@ -5,6 +5,7 @@ import type {
   GrowthSource,
   UnavailableReason,
 } from "@/lib/stock-detail-types";
+import { marginOfSafetyPercent } from "@/lib/valuation-label";
 
 const yahooFinance = new YahooFinance();
 
@@ -407,8 +408,7 @@ export async function computeStockPayloadFromYahoo(
         Number.isFinite(intrinsicValue) &&
         price > 0
       ) {
-        marginOfSafety = ((intrinsicValue - price) / price) * 100;
-        if (!Number.isFinite(marginOfSafety)) marginOfSafety = null;
+        marginOfSafety = marginOfSafetyPercent(intrinsicValue, price);
       }
     }
 
