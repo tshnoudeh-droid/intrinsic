@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { StockResultCard } from "@/components/screener/StockResultCard";
+import { useScreenerSectors } from "@/lib/screener-sectors-client";
 import type { ScreenerStockRow } from "@/lib/screener-types";
 
 export type StockSortKey = "safety" | "pe" | "marketCap" | "growth";
@@ -47,11 +48,12 @@ export function sortStockRows(rows: ScreenerStockRow[], key: StockSortKey): Scre
 
 type Props = {
   rows: ScreenerStockRow[];
-  /** symbol → sector (Yahoo), filled in progressively; absent while loading. */
-  sectors?: Record<string, string | null>;
 };
 
-export function StockResults({ rows, sectors }: Props) {
+export function StockResults({ rows }: Props) {
+  const symbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
+  // symbol → sector (Yahoo); undefined until resolved.
+  const sectors = useScreenerSectors(symbols);
   const [sort, setSort] = useState<StockSortKey>("safety");
   const [sector, setSector] = useState<string | null>(null);
   const [visible, setVisible] = useState(PAGE_SIZE);
