@@ -1,6 +1,7 @@
 export type ScreenerFilterField =
   | "margin_of_safety"
   | "valuation_label"
+  | "exchange"
   | "market_cap"
   | "pe_ratio"
   | "forward_pe"
@@ -35,6 +36,7 @@ export type ScreenerStockRow = {
 export const SCREENER_FILTERABLE_FIELDS: readonly ScreenerFilterField[] = [
   "margin_of_safety",
   "valuation_label",
+  "exchange",
   "market_cap",
   "pe_ratio",
   "forward_pe",
@@ -49,6 +51,17 @@ export const SCREENER_FILTER_OPERATORS: readonly ScreenerFilterOperator[] = [
   "lte",
   "eq",
 ] as const;
+
+/** Values of screener_stocks.exchange (set from lib/sp500-tsx60-tickers.ts). */
+export const SCREENER_EXCHANGES: readonly string[] = ["US", "TSX"] as const;
+
+/** Fields whose filter value is a fixed string (operator is always "eq"). */
+export type ScreenerCategoricalField = "valuation_label" | "exchange";
+export type ScreenerNumericField = Exclude<ScreenerFilterField, ScreenerCategoricalField>;
+
+export function isCategoricalField(f: ScreenerFilterField): f is ScreenerCategoricalField {
+  return f === "valuation_label" || f === "exchange";
+}
 
 export const SCREENER_VALUATION_LABELS: readonly ScreenerValuationLabel[] = [
   "Undervalued",

@@ -10,7 +10,9 @@ import {
   formatFilterChip,
 } from "@/lib/screener-format";
 import {
+  SCREENER_EXCHANGES,
   SCREENER_VALUATION_LABELS,
+  isCategoricalField,
   type ScreenerFilter,
   type ScreenerFilterOperator,
 } from "@/lib/screener-types";
@@ -82,7 +84,8 @@ function FilterEditor({
 }) {
   const ref = useRef<HTMLFormElement>(null);
   const inputId = useId();
-  const isLabel = filter.field === "valuation_label";
+  const isLabel = isCategoricalField(filter.field);
+  const choices = filter.field === "exchange" ? SCREENER_EXCHANGES : SCREENER_VALUATION_LABELS;
   const [operator, setOperator] = useState<ScreenerFilterOperator>(
     filter.operator === "gt" || filter.operator === "gte" ? "gte" : "lte",
   );
@@ -105,14 +108,14 @@ function FilterEditor({
     };
   }, [onCancel]);
 
-  const unit = filter.field === "valuation_label" ? null : FILTER_EDIT_UNITS[filter.field];
+  const unit = isCategoricalField(filter.field) ? null : FILTER_EDIT_UNITS[filter.field];
   const parsed = Number(text);
   const valid = isLabel ? text.length > 0 : text.trim() !== "" && Number.isFinite(parsed);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    if (filter.field === "valuation_label") {
+    if (isCategoricalField(filter.field)) {
       onApply({ field: filter.field, operator: "eq", value: text });
       return;
     }
@@ -134,7 +137,7 @@ function FilterEditor({
       </label>
       {isLabel ? (
         <div className="mt-2 flex gap-1.5">
-          {SCREENER_VALUATION_LABELS.map((label) => (
+          {choices.map((label) => (
             <button
               key={label}
               type="button"

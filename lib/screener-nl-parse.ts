@@ -4,6 +4,7 @@ import {
   DEFAULT_SCREENER_INTENT,
   ETF_CATEGORIES,
   SCREENER_ASSET_TYPES,
+  SCREENER_EXCHANGES,
   SCREENER_FILTERABLE_FIELDS,
   SCREENER_FILTER_OPERATORS,
   SCREENER_VALUATION_LABELS,
@@ -23,6 +24,7 @@ const SYSTEM_PROMPT = `You convert a stock screener query written in plain Engli
 Allowed fields (use exactly these names):
 - margin_of_safety: percent, e.g. 20 for 20%
 - valuation_label: one of "Undervalued", "Fair", "Overvalued"
+- exchange: "US" (S&P 500) or "TSX" (Canadian, TSX 60); operator must be eq
 - market_cap: dollars, e.g. 1000000000 for $1B, 1000000000000 for $1T
 - pe_ratio: trailing P/E ratio, plain number
 - forward_pe: forward P/E ratio, plain number
@@ -47,6 +49,8 @@ Users often describe goals in everyday language instead of metrics. Translate th
 - "steady/modest return of about X% a year": revenue_growth gte a value near X/2 as a decimal (e.g. 6% -> 0.03), plus margin_of_safety gte 0
 - "big company" / "small company": market_cap gte 10000000000 / market_cap lte 2000000000
 - "not overpriced", "reasonably priced": pe_ratio lte 25
+- "Canadian", "Canada", "TSX": exchange eq "TSX"; "American", "US": exchange eq "US"
+- "dividend", "income": there is no dividend field. Add etfCategories ["dividend"] and, for stocks, use mature-company proxies: market_cap gte 20000000000 and pe_ratio lte 25
 Combine multiple goals into multiple filters. Keep the list short (1-4 filters).
 
 Example: "something trustworthy in the long run, about 6% return annually, low risk"
@@ -74,6 +78,13 @@ export function isValidFilter(f: unknown): f is ScreenerFilter {
     !(SCREENER_FILTER_OPERATORS as readonly string[]).includes(o.operator)
   ) {
     return false;
+  }
+  if (o.field === "exchange") {
+    return (
+      o.operator === "eq" &&
+      typeof o.value === "string" &&
+      SCREENER_EXCHANGES.includes(o.value)
+    );
   }
   if (o.field === "valuation_label") {
     return (
@@ -163,8 +174,8 @@ export async function parseScreenerQuery(
 
   // ETF-only answers ("index funds for beginners") legitimately have no stock
   // filters; everything else needs at least one usable filter.
-  const etfOnly = modelIntent !== null && modelIntent.assetTypes[0] === "etf";
-  if (filters.length === 0 && !etfOnly) {
+  const wantsEtfs = modelIntent !== null && modelIntent.assetTypes.includes("etf");
+  if (filters.length === 0 && !wantsEtfs) {
     const hadFilters = Array.isArray(filtersRaw) && filtersRaw.length > 0;
     return {
       ok: false,
@@ -174,5 +185,10 @@ export async function parseScreenerQuery(
     };
   }
 
-  return { ok: true, filters, intent: finalizeIntent(trimmed, modelIntent) };
+  const intent = finalizeIntent(trimmed, modelIntent);
+  // Without stock filters, ETFs are the only thing we can show first.
+  if (filters.length === 0 && intent.assetTypes[0] !== "etf") {
+    intent.assetTypes = ["etf", ...intent.assetTypes.filter((t) => t !== "etf")];
+  }
+  return { ok: true, filters, intent };
 }

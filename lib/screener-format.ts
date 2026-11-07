@@ -1,7 +1,9 @@
-import type {
-  ScreenerFilter,
-  ScreenerFilterField,
-  ScreenerFilterOperator,
+import {
+  isCategoricalField,
+  type ScreenerFilter,
+  type ScreenerFilterField,
+  type ScreenerFilterOperator,
+  type ScreenerNumericField,
 } from "@/lib/screener-types";
 
 /**
@@ -108,6 +110,7 @@ export function formatPercentDecimal(
 export const FILTER_FIELD_LABELS: Record<ScreenerFilterField, string> = {
   margin_of_safety: "Margin of safety",
   valuation_label: "Valuation",
+  exchange: "Listed in",
   market_cap: "Market cap",
   pe_ratio: "P/E",
   forward_pe: "Forward P/E",
@@ -132,7 +135,7 @@ export type FilterEditUnit = {
 };
 
 export const FILTER_EDIT_UNITS: Record<
-  Exclude<ScreenerFilterField, "valuation_label">,
+  ScreenerNumericField,
   FilterEditUnit
 > = {
   margin_of_safety: { prefix: "", suffix: "%", scale: 1 },
@@ -148,14 +151,14 @@ function roundForDisplay(n: number): number {
 }
 
 export function filterValueToEditable(filter: ScreenerFilter): number | null {
-  if (filter.field === "valuation_label" || typeof filter.value !== "number") {
+  if (isCategoricalField(filter.field) || typeof filter.value !== "number") {
     return null;
   }
   return roundForDisplay(filter.value * FILTER_EDIT_UNITS[filter.field].scale);
 }
 
 export function editableToFilterValue(
-  field: Exclude<ScreenerFilterField, "valuation_label">,
+  field: ScreenerNumericField,
   editable: number,
 ): number {
   const raw = editable / FILTER_EDIT_UNITS[field].scale;
@@ -164,6 +167,9 @@ export function editableToFilterValue(
 }
 
 function formatFilterValue(filter: ScreenerFilter): string {
+  if (filter.field === "exchange") {
+    return filter.value === "TSX" ? "Canada (TSX)" : "US";
+  }
   if (typeof filter.value === "string") return filter.value;
   switch (filter.field) {
     case "market_cap":
@@ -182,7 +188,7 @@ function formatFilterValue(filter: ScreenerFilter): string {
 /** "Market cap ≥ $50B", "Revenue growth ≥ 3%", "Valuation: Undervalued". */
 export function formatFilterChip(filter: ScreenerFilter): string {
   const label = FILTER_FIELD_LABELS[filter.field] ?? filter.field;
-  if (filter.field === "valuation_label") {
+  if (isCategoricalField(filter.field)) {
     return `${label}: ${formatFilterValue(filter)}`;
   }
   const op = FILTER_OPERATOR_SYMBOLS[filter.operator] ?? filter.operator;
