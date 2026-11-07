@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Search } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { EtfResults, useEtfs } from "@/components/screener/EtfResults";
 import { FilterChips } from "@/components/screener/FilterChips";
@@ -33,6 +33,24 @@ type Screen = {
   rows: ScreenerStockRow[];
 };
 
+const SESSION_KEY = "intrinsic:screener:last";
+
+/** Last screen in this tab, so Back from a stock page restores results. */
+function readSavedScreen(): { screen: Screen; tab: ScreenerAssetType } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as { screen?: Screen; tab?: ScreenerAssetType };
+    const s = o.screen;
+    if (!s || typeof s.query !== "string" || !Array.isArray(s.rows) || !Array.isArray(s.filters) || !s.intent) {
+      return null;
+    }
+    return { screen: s, tab: o.tab === "etf" ? "etf" : "stock" };
+  } catch {
+    return null;
+  }
+}
+
 type ScreenRequest =
   | { query: string }
   | { filters: ScreenerFilter[]; intent: ScreenerIntent; query: string };
@@ -45,6 +63,24 @@ export default function ScreenerPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const etfs = useEtfs();
+
+  // Restore after mount (sessionStorage isn't available during SSR).
+  useEffect(() => {
+    const saved = readSavedScreen();
+    if (!saved) return;
+    setScreen(saved.screen);
+    setTab(saved.tab);
+    setQuery(saved.screen.query);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (screen) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ screen, tab }));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // Storage blocked (private mode etc.) — restoring is just a convenience.
+    }
+  }, [screen, tab]);
 
   async function runScreen(req: ScreenRequest) {
     if (loading) return;
@@ -306,9 +342,8 @@ function WhyEtfs() {
         For long-term, lower-risk goals, one broad <GlossaryTerm term="etf" /> holds hundreds or
         thousands of companies for a small yearly <GlossaryTerm term="expense-ratio">fee</GlossaryTerm>,
         so no single company can sink you. Most of these are{" "}
-        <GlossaryTerm term="index-fund">index funds</GlossaryTerm>. Historically, broad stock
-        markets have returned more than 6% a year over long periods, though never guaranteed and
-        with ups and downs along the way.
+        <GlossaryTerm term="index-fund">index funds</GlossaryTerm>. Returns aren&apos;t guaranteed,
+        and prices will go up and down along the way.
       </p>
     </div>
   );

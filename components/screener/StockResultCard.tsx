@@ -73,13 +73,16 @@ export function StockResultCard({ row, sector }: Props) {
           {row.symbol.replace(/\.TO$/, "").slice(0, 4)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
             <Link
               href={href}
               className="text-[15px] font-semibold text-intrinsic-ink outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:underline"
             >
               {row.symbol}
             </Link>
+            {sector ? (
+              <span className="hidden min-w-0 truncate text-xs text-intrinsic-ink/55 sm:inline">{sector}</span>
+            ) : null}
             {row.exchange === "TSX" ? (
               <span className="rounded-md bg-intrinsic-bg px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-intrinsic-secondary">
                 TSX
@@ -91,22 +94,17 @@ export function StockResultCard({ row, sector }: Props) {
               {row.valuation_label ?? "No estimate"}
             </span>
           </div>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-intrinsic-secondary">
-            <span className="min-w-0 truncate">{row.name}</span>
-            {sector ? (
-              <>
-                <span aria-hidden className="text-intrinsic-secondary/50">·</span>
-                <span className="max-w-[45%] shrink-0 truncate text-intrinsic-ink/60">{sector}</span>
-              </>
-            ) : null}
-          </div>
+          {sector ? (
+            <div className="mt-0.5 truncate text-xs text-intrinsic-ink/55 sm:hidden">{sector}</div>
+          ) : null}
+          <div className="mt-0.5 truncate text-[13px] text-intrinsic-secondary">{row.name}</div>
         </div>
         <div className="relative z-10 sm:hidden">
           <CompanyInfoButton symbol={row.symbol} name={row.name} variant="icon" />
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 sm:w-[400px] sm:shrink-0 sm:grid-cols-[1.1fr_1fr_0.8fr_0.9fr]">
+      <div className="grid grid-cols-[1.25fr_1fr_0.8fr_1fr] gap-2 sm:w-[400px] sm:gap-3 sm:shrink-0 sm:grid-cols-[1.1fr_1fr_0.8fr_0.9fr]">
         <Metric label="Price" value={formatPrice(row.price, currency)} />
         <Metric
           label="Safety"
@@ -150,7 +148,7 @@ export function StockResultSkeleton({ count = 6 }: { count?: number }) {
               <div className="h-3 w-40 rounded-full bg-intrinsic-bg/70" />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3 sm:w-[400px]">
+          <div className="grid grid-cols-[1.25fr_1fr_0.8fr_1fr] gap-2 sm:w-[400px] sm:gap-3">
             {Array.from({ length: 4 }, (_, j) => (
               <div key={j} className="h-8 rounded-lg bg-intrinsic-bg/60" />
             ))}

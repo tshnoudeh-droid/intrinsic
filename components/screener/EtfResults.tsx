@@ -176,7 +176,7 @@ function EtfCard({ etf }: { etf: ScreenerEtfRow }) {
           <CompanyInfoButton symbol={etf.symbol} name={etf.name} variant="icon" />
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-3 sm:w-[400px] sm:shrink-0 sm:grid-cols-[1.1fr_1fr_0.8fr_0.9fr]">
+      <div className="grid grid-cols-[1.25fr_1fr_0.8fr_1fr] gap-2 sm:w-[400px] sm:gap-3 sm:shrink-0 sm:grid-cols-[1.1fr_1fr_0.8fr_0.9fr]">
         <Metric label="Price" value={formatPrice(etf.price, etf.currency)} />
         <Metric label="Fee / yr" value={formatPercentDecimal(etf.expenseRatio)} />
         <Metric label="Yield" value={formatPercentDecimal(etf.dividendYield)} />
