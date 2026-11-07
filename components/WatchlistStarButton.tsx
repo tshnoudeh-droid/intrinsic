@@ -2,6 +2,8 @@
 
 import { useUser } from "@clerk/nextjs";
 import { Star } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   addToWatchlist,
@@ -16,6 +18,7 @@ type Props = {
 export function WatchlistStarButton({ symbol }: Props) {
   const { isSignedIn, user } = useUser();
   const userId = user?.id ?? null;
+  const pathname = usePathname() ?? "/";
 
   const [saved, setSaved] = useState(false);
   const [pulse, setPulse] = useState(false);
@@ -42,7 +45,7 @@ export function WatchlistStarButton({ symbol }: Props) {
 
   useEffect(() => {
     if (!tipOpen) return;
-    const t = window.setTimeout(() => setTipOpen(false), 2800);
+    const t = window.setTimeout(() => setTipOpen(false), 5000);
     return () => window.clearTimeout(t);
   }, [tipOpen]);
 
@@ -85,10 +88,16 @@ export function WatchlistStarButton({ symbol }: Props) {
       </button>
       {tipOpen && !isSignedIn ? (
         <div
-          role="tooltip"
-          className="absolute bottom-[calc(100%+8px)] left-1/2 z-[90] max-w-[260px] -translate-x-1/2 rounded-md border border-intrinsic-secondary/20 bg-[#FAF8F4] px-3 py-2 text-left text-xs leading-snug text-intrinsic-ink shadow-md"
+          role="status"
+          className="absolute bottom-[calc(100%+8px)] left-1/2 z-[90] w-[230px] -translate-x-1/2 rounded-xl border border-intrinsic-secondary/20 bg-[#FAF8F4] px-3 py-2.5 text-left text-xs leading-snug text-intrinsic-ink shadow-lg"
         >
-          Sign in to save stocks to your watchlist
+          Save stocks to a watchlist with a free account.{" "}
+          <Link
+            href={`/sign-in?redirect_url=${encodeURIComponent(pathname)}`}
+            className="font-semibold underline underline-offset-2"
+          >
+            Sign in
+          </Link>
         </div>
       ) : null}
     </div>

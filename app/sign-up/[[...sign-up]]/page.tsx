@@ -1,12 +1,18 @@
-import { SignUp } from '@clerk/nextjs'
+import type { Metadata } from "next";
+import { SignUp } from "@clerk/nextjs";
+import { AuthShell } from "@/components/nav/AuthShell";
+
+export const metadata: Metadata = {
+  title: "Create account | Intrinsic",
+};
 
 export default function SignUpPage() {
   return (
-    <main
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: '#EDE8DF' }}
-    >
-      <SignUp forceRedirectUrl="/explore" />
-    </main>
-  )
+    <AuthShell note="A free account lets you star stocks and keep them on a watchlist.">
+      <SignUp
+        fallbackRedirectUrl="/explore"
+        signInUrl="/sign-in"
+      />
+    </AuthShell>
+  );
 }
