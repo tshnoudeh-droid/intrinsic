@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AboutCompanySection } from "@/components/AboutCompanySection";
+import CompanyInfoButton from "@/components/CompanyInfoButton";
 import { IntrinsicChat } from "@/components/IntrinsicChat";
 import { KeyStats } from "@/components/KeyStats";
 import type { ChatStockContext } from "@/lib/chat-context";
@@ -66,7 +68,8 @@ function isUnavailableReasonField(
     v === "insufficient_data" ||
     v === "calculation_error" ||
     v === "negative_result" ||
-    v === "terminal_rate_too_close"
+    v === "terminal_rate_too_close" ||
+    v === "fund_not_applicable"
   );
 }
 
@@ -109,6 +112,9 @@ function isStockDetailPayload(json: unknown): json is StockDetailPayload {
     isNullishFiniteNumber(o.week52High) &&
     isNullishFiniteNumber(o.week52Low) &&
     isNullishFiniteNumber(o.regularMarketTime) &&
+    (o.quoteType === undefined ||
+      o.quoteType === null ||
+      typeof o.quoteType === "string") &&
     (o.regulatoryNote === undefined ||
       o.regulatoryNote === null ||
       typeof o.regulatoryNote === "string")
@@ -275,8 +281,15 @@ export function StockPageContent({ symbol }: Props) {
     );
   }, [data, growthRate, growthSliderMin, growthSliderMax]);
 
+  const isFund =
+    data !== null &&
+    (data.quoteType === "ETF" ||
+      data.quoteType === "MUTUALFUND" ||
+      data.unavailableReason === "fund_not_applicable");
+
   const canValuate =
     data !== null &&
+    !isFund &&
     data.cashFlowUsed !== null &&
     data.sharesOutstanding !== null;
 
@@ -450,9 +463,21 @@ export function StockPageContent({ symbol }: Props) {
                   {data.symbol}
                 </h1>
                 <WatchlistStarButton symbol={data.symbol} />
+                <CompanyInfoButton
+                  symbol={data.symbol}
+                  name={data.name}
+                  variant="icon"
+                />
               </div>
-              <p className="text-center text-xl text-intrinsic-secondary sm:text-2xl lg:col-start-1 lg:row-start-2 lg:text-left">
+              <p className="text-balance break-words text-center text-xl text-intrinsic-secondary sm:text-2xl lg:col-start-1 lg:row-start-2 lg:text-left">
                 {data.name}
+                {isFund ? (
+                  <span className="ml-2 inline-block translate-y-[-2px] rounded-full bg-intrinsic-accent px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wider text-[#3d5a4c] ring-1 ring-[#b9dccb]/60">
+                    {data.quoteType === "MUTUALFUND"
+                      ? "Fund"
+                      : STOCK_PAGE_COPY.fundBadge}
+                  </span>
+                ) : null}
               </p>
               <div className="w-full lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start">
                 <SearchBar
@@ -487,6 +512,8 @@ export function StockPageContent({ symbol }: Props) {
               </div>
             </header>
 
+            <AboutCompanySection symbol={data.symbol} isFund={isFund} />
+
             <section className="min-w-0">
               <StockPriceChart
                 key={data.symbol}
@@ -500,7 +527,16 @@ export function StockPageContent({ symbol }: Props) {
               </p>
             </section>
 
-            {!canValuate ? (
+            {isFund ? (
+              <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
+                <p className="font-medium text-intrinsic-ink">
+                  {STOCK_PAGE_COPY.fundValuationTitle}
+                </p>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-intrinsic-secondary sm:text-base">
+                  {VALUATION_UNAVAILABLE_BODY_BY_REASON.fund_not_applicable}
+                </p>
+              </div>
+            ) : !canValuate ? (
               <div className="rounded-2xl border border-intrinsic-secondary/10 bg-intrinsic-light px-6 py-8 text-center sm:rounded-3xl sm:px-8 sm:py-10">
                 <p className="font-medium text-intrinsic-ink">
                   {STOCK_PAGE_COPY.valuationUnavailableTitle}
@@ -608,6 +644,7 @@ export function StockPageContent({ symbol }: Props) {
               revenueGrowth={data.revenueGrowth}
               week52High={data.week52High}
               week52Low={data.week52Low}
+              hideMissing={isFund}
             />
 
             {canValuate ? (
@@ -787,7 +824,9 @@ export function StockPageContent({ symbol }: Props) {
             ) : null}
 
             <p className="mx-auto max-w-xl text-center text-xs leading-relaxed text-intrinsic-secondary/80">
-              {STOCK_PAGE_COPY.disclaimer}
+              {isFund
+                ? STOCK_PAGE_COPY.fundDisclaimer
+                : STOCK_PAGE_COPY.disclaimer}
             </p>
           </div>
         ) : null}

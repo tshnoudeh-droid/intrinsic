@@ -216,6 +216,8 @@ function firstFiniteNum(...candidates: unknown[]): number | null {
 export type YahooStockPayload = {
   symbol: string;
   name: string;
+  /** Yahoo quoteType, e.g. "EQUITY", "ETF", "MUTUALFUND"; null if absent. */
+  quoteType: string | null;
   price: number;
   intrinsicValue: number | null;
   marginOfSafety: number | null;
@@ -339,7 +341,20 @@ export function buildStockPayloadFromYahooData(
     return null;
   }
 
-  const name = String((quote as { shortName?: string }).shortName ?? symbol);
+  const quoteFields = quote as {
+    shortName?: string;
+    longName?: string;
+    quoteType?: unknown;
+  };
+  const quoteType =
+    typeof quoteFields.quoteType === "string" ? quoteFields.quoteType : null;
+  const isFund = quoteType === "ETF" || quoteType === "MUTUALFUND";
+  // Fund shortNames are often truncated ("…S&P 500 ETF T"); prefer longName.
+  const name = String(
+    (isFund ? quoteFields.longName : undefined) ??
+      quoteFields.shortName ??
+      symbol,
+  );
 
   const toQuoteCurrency = (x: number | null): number | null =>
     x === null || fxRate === null ? null : x * fxRate;
@@ -570,9 +585,21 @@ export function buildStockPayloadFromYahooData(
       ? Math.floor(rmt.getTime() / 1000)
       : num(rmt);
 
+  // Funds hold other companies; a company DCF doesn't apply. Blank the
+  // valuation fields so nothing downstream shows a misleading number.
+  if (isFund) {
+    intrinsicValue = null;
+    marginOfSafety = null;
+    cashFlow = null;
+    cashFlowSource = null;
+    fcfReported = null;
+    unavailableReason = "fund_not_applicable";
+  }
+
   return {
     symbol,
     name,
+    quoteType,
     price,
     intrinsicValue,
     marginOfSafety,
