@@ -1,10 +1,16 @@
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import {
+  DEFAULT_SCREENER_INTENT,
+  ETF_CATEGORIES,
+  SCREENER_ASSET_TYPES,
   SCREENER_FILTERABLE_FIELDS,
   SCREENER_FILTER_OPERATORS,
   SCREENER_VALUATION_LABELS,
+  type EtfCategory,
+  type ScreenerAssetType,
   type ScreenerFilter,
+  type ScreenerIntent,
 } from "@/lib/screener-types";
 
 // Same model as the Phase 1 chatbot (app/api/chat/route.ts) — Llama 3.3
@@ -25,8 +31,14 @@ Allowed fields (use exactly these names):
 
 Allowed operators: gt, gte, lt, lte, eq.
 
+Also return an "intent" describing which kinds of investments fit:
+- assetTypes: ordered list of "etf" and/or "stock"; the first is the best fit.
+  Put "etf" first when the user wants something long-term, passive, low risk, diversified, beginner-friendly, hands-off, retirement, an index fund, or mentions ETFs/funds. Otherwise put "stock" first. Include both unless the user clearly wants only one.
+- etfCategories (optional): which ETF groups fit, from: ${ETF_CATEGORIES.join(", ")}.
+  e.g. low risk / long term -> all-in-one, us-total-market, sp500; income / dividends -> dividend; Canadian -> canadian-equity; bonds / very safe -> bonds; growth / tech -> growth; international -> international.
+
 Respond with ONLY JSON matching this shape, nothing else, no markdown code fence:
-{"filters":[{"field":"margin_of_safety","operator":"gte","value":20}]}
+{"filters":[{"field":"margin_of_safety","operator":"gte","value":20}],"intent":{"assetTypes":["stock","etf"]}}
 
 Users often describe goals in everyday language instead of metrics. Translate those into reasonable proxy filters on the allowed fields rather than giving up. Guidelines:
 - "safe", "low risk", "stable", "trustworthy", "blue chip", "established": market_cap gte 50000000000 and pe_ratio lte 25
@@ -38,9 +50,15 @@ Users often describe goals in everyday language instead of metrics. Translate th
 Combine multiple goals into multiple filters. Keep the list short (1-4 filters).
 
 Example: "something trustworthy in the long run, about 6% return annually, low risk"
-{"filters":[{"field":"market_cap","operator":"gte","value":50000000000},{"field":"pe_ratio","operator":"lte","value":25},{"field":"revenue_growth","operator":"gte","value":0.03},{"field":"margin_of_safety","operator":"gte","value":0}]}
+{"filters":[{"field":"market_cap","operator":"gte","value":50000000000},{"field":"pe_ratio","operator":"lte","value":25},{"field":"revenue_growth","operator":"gte","value":0.03},{"field":"margin_of_safety","operator":"gte","value":0}],"intent":{"assetTypes":["etf","stock"],"etfCategories":["all-in-one","us-total-market","sp500"]}}
 
-Only respond with {"filters":[]} if the query has nothing to do with picking stocks.`;
+Example: "index funds for beginners"
+{"filters":[],"intent":{"assetTypes":["etf"],"etfCategories":["all-in-one","us-total-market","sp500","canadian-equity"]}}
+
+Example: "cheap growing tech"
+{"filters":[{"field":"valuation_label","operator":"eq","value":"Undervalued"},{"field":"revenue_growth","operator":"gte","value":0.1}],"intent":{"assetTypes":["stock","etf"],"etfCategories":["growth"]}}
+
+Only respond with {"filters":[],"intent":{"assetTypes":[]}} if the query has nothing to do with investing.`;
 
 export function isValidFilter(f: unknown): f is ScreenerFilter {
   if (!f || typeof f !== "object") return false;
@@ -67,12 +85,45 @@ export function isValidFilter(f: unknown): f is ScreenerFilter {
   return typeof o.value === "number" && Number.isFinite(o.value);
 }
 
+function uniqueValid<T extends string>(raw: unknown, allowed: readonly T[]): T[] {
+  if (!Array.isArray(raw)) return [];
+  const out: T[] = [];
+  for (const v of raw) {
+    if (typeof v === "string" && (allowed as readonly string[]).includes(v) && !out.includes(v as T)) {
+      out.push(v as T);
+    }
+  }
+  return out;
+}
+
+/** Strict validation; anything malformed is dropped, never trusted. */
+export function parseScreenerIntent(raw: unknown): ScreenerIntent | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const assetTypes = uniqueValid<ScreenerAssetType>(o.assetTypes, SCREENER_ASSET_TYPES);
+  if (assetTypes.length === 0) return null;
+  const etfCategories = uniqueValid<EtfCategory>(o.etfCategories, ETF_CATEGORIES);
+  return etfCategories.length > 0 ? { assetTypes, etfCategories } : { assetTypes };
+}
+
+// Deterministic backstop in case the model leaves ETFs out of obviously
+// passive / long-term queries.
+const ETF_FIRST_PATTERN =
+  /\b(etfs?|index|indexes|indices|fund|funds|passive|diversif\w*|beginners?|long[\s-]?(run|term)|retire\w*|hands[\s-]?off|low[\s-]?risk|safe|safest)\b/i;
+
+function finalizeIntent(query: string, intent: ScreenerIntent | null): ScreenerIntent {
+  const base = intent ?? DEFAULT_SCREENER_INTENT;
+  if (!ETF_FIRST_PATTERN.test(query) || base.assetTypes[0] === "etf") return base;
+  const rest = base.assetTypes.filter((t) => t !== "etf");
+  return { ...base, assetTypes: ["etf", ...rest] };
+}
+
 export type ParseScreenerQueryResult =
-  | { ok: true; filters: ScreenerFilter[] }
+  | { ok: true; filters: ScreenerFilter[]; intent: ScreenerIntent }
   | { ok: false; reason: string };
 
 const UNPARSEABLE_MESSAGE =
-  'Couldn\'t understand that — try phrasing like "margin of safety above 20%, P/E below 30".';
+  "I couldn't turn that into a screen. Try something like \"undervalued and P/E below 20\" or \"index funds for beginners\".";
 
 export async function parseScreenerQuery(
   query: string,
@@ -102,20 +153,26 @@ export async function parseScreenerQuery(
   } catch {
     return { ok: false, reason: UNPARSEABLE_MESSAGE };
   }
-
-  const filtersRaw = (parsed as { filters?: unknown }).filters;
-  if (!Array.isArray(filtersRaw) || filtersRaw.length === 0) {
+  if (!parsed || typeof parsed !== "object") {
     return { ok: false, reason: UNPARSEABLE_MESSAGE };
   }
 
-  const filters = filtersRaw.filter(isValidFilter);
-  if (filters.length === 0) {
+  const filtersRaw = (parsed as { filters?: unknown }).filters;
+  const modelIntent = parseScreenerIntent((parsed as { intent?: unknown }).intent);
+  const filters = Array.isArray(filtersRaw) ? filtersRaw.filter(isValidFilter) : [];
+
+  // ETF-only answers ("index funds for beginners") legitimately have no stock
+  // filters; everything else needs at least one usable filter.
+  const etfOnly = modelIntent !== null && modelIntent.assetTypes[0] === "etf";
+  if (filters.length === 0 && !etfOnly) {
+    const hadFilters = Array.isArray(filtersRaw) && filtersRaw.length > 0;
     return {
       ok: false,
-      reason:
-        "None of those conditions map to a supported field. Supported: margin of safety, valuation, market cap, P/E, forward P/E, revenue growth, price.",
+      reason: hadFilters
+        ? "None of those conditions map to a supported field. Supported: margin of safety, valuation, market cap, P/E, forward P/E, revenue growth, price."
+        : UNPARSEABLE_MESSAGE,
     };
   }
 
-  return { ok: true, filters };
+  return { ok: true, filters, intent: finalizeIntent(trimmed, modelIntent) };
 }

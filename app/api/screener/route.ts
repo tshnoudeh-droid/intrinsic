@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { isValidFilter, parseScreenerQuery } from "@/lib/screener-nl-parse";
+import {
+  isValidFilter,
+  parseScreenerIntent,
+  parseScreenerQuery,
+} from "@/lib/screener-nl-parse";
 import { runScreenerQuery } from "@/lib/screener-query";
 import {
   checkScreenerFilterRateLimit,
@@ -7,7 +11,11 @@ import {
   clientIdentifierFromRequest,
 } from "@/lib/rate-limit";
 import { getSupabaseServerClient } from "@/lib/supabase-client";
-import type { ScreenerFilter } from "@/lib/screener-types";
+import {
+  DEFAULT_SCREENER_INTENT,
+  type ScreenerFilter,
+  type ScreenerIntent,
+} from "@/lib/screener-types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +24,14 @@ const MAX_DIRECT_FILTERS = 8;
 
 type ParsedBody =
   | { kind: "query"; query: string }
-  | { kind: "filters"; filters: ScreenerFilter[] };
+  | { kind: "filters"; filters: ScreenerFilter[]; intent: ScreenerIntent };
 
 /**
  * Two request shapes:
  * - `{ query }` — plain English, parsed by Groq (screener rate limit).
- * - `{ filters }` — already-structured filters from editing / removing a
- *   chip. Skips Groq entirely, so it uses a separate, roomier budget.
+ * - `{ filters, intent? }` — already-structured filters from editing /
+ *   removing a chip. Skips Groq entirely, so it uses a separate, roomier
+ *   budget. An empty list is allowed (returns no stock rows).
  */
 function parseBody(json: unknown): ParsedBody | null {
   if (!json || typeof json !== "object") return null;
@@ -36,7 +45,11 @@ function parseBody(json: unknown): ParsedBody | null {
   if (Array.isArray(o.filters)) {
     if (o.filters.length > MAX_DIRECT_FILTERS) return null;
     if (!o.filters.every(isValidFilter)) return null;
-    return { kind: "filters", filters: o.filters };
+    return {
+      kind: "filters",
+      filters: o.filters,
+      intent: parseScreenerIntent(o.intent) ?? DEFAULT_SCREENER_INTENT,
+    };
   }
   return null;
 }
@@ -63,12 +76,20 @@ export async function POST(request: Request) {
   }
 
   let filters: ScreenerFilter[];
+  let intent: ScreenerIntent;
   if (body.kind === "query") {
     const parsed = await parseScreenerQuery(body.query);
     if (!parsed.ok) return errorResponse(parsed.reason, 400);
     filters = parsed.filters;
+    intent = parsed.intent;
   } else {
     filters = body.filters;
+    intent = body.intent;
+  }
+
+  // ETF-only intent (or every chip removed): nothing to screen in Supabase.
+  if (filters.length === 0) {
+    return NextResponse.json({ filters, intent, rows: [] });
   }
 
   const supabase = getSupabaseServerClient();
@@ -79,5 +100,5 @@ export async function POST(request: Request) {
     return errorResponse("Screener temporarily unavailable.", 503);
   }
 
-  return NextResponse.json({ filters, rows: result.rows });
+  return NextResponse.json({ filters, intent, rows: result.rows });
 }

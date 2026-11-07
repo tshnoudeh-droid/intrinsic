@@ -56,10 +56,72 @@ export const SCREENER_VALUATION_LABELS: readonly ScreenerValuationLabel[] = [
   "Overvalued",
 ] as const;
 
+export type ScreenerAssetType = "stock" | "etf";
+
+export const SCREENER_ASSET_TYPES: readonly ScreenerAssetType[] = [
+  "stock",
+  "etf",
+] as const;
+
+export type EtfCategory =
+  | "us-total-market"
+  | "sp500"
+  | "canadian-equity"
+  | "all-in-one"
+  | "international"
+  | "bonds"
+  | "dividend"
+  | "growth";
+
+export const ETF_CATEGORIES: readonly EtfCategory[] = [
+  "us-total-market",
+  "sp500",
+  "canadian-equity",
+  "all-in-one",
+  "international",
+  "bonds",
+  "dividend",
+  "growth",
+] as const;
+
+/**
+ * What the user seems to want beyond stock filters. `assetTypes` is ordered:
+ * the first entry is shown first. `etfCategories` (optional) ranks the ETF
+ * catalog.
+ */
+export type ScreenerIntent = {
+  assetTypes: ScreenerAssetType[];
+  etfCategories?: EtfCategory[];
+};
+
+export const DEFAULT_SCREENER_INTENT: ScreenerIntent = {
+  assetTypes: ["stock", "etf"],
+};
+
 /** Response of POST /api/screener. */
 export type ScreenerApiResponse = {
   error?: boolean;
   message?: string;
   filters?: ScreenerFilter[];
+  /** Absent on older responses; treat as DEFAULT_SCREENER_INTENT. */
+  intent?: ScreenerIntent;
   rows?: ScreenerStockRow[];
+};
+
+/** One ETF as served by GET /api/screener/etfs. All numbers live from Yahoo. */
+export type ScreenerEtfRow = {
+  symbol: string;
+  name: string;
+  category: EtfCategory;
+  categoryLabel: string;
+  currency: string | null;
+  price: number | null;
+  /** Decimal, e.g. 0.0003 for 0.03%. */
+  expenseRatio: number | null;
+  /** Trailing distribution yield, decimal. */
+  dividendYield: number | null;
+  /** Year-to-date return, decimal. */
+  ytdReturn: number | null;
+  /** Fund net assets in its trading currency. */
+  netAssets: number | null;
 };
