@@ -15,7 +15,7 @@ const GROQ_MODEL = "openai/gpt-oss-120b";
 const SYSTEM_PROMPT = `You convert a stock screener query written in plain English into a structured filter list.
 
 Allowed fields (use exactly these names):
-- margin_of_safety: percent, e.g. 20 for 20%
+- margin_of_safety: percent, (intrinsic - price) / intrinsic, at most 100, e.g. 20 for 20%
 - valuation_label: one of "Undervalued", "Fair", "Overvalued"
 - market_cap: dollars, e.g. 1000000000 for $1B, 1000000000000 for $1T
 - pe_ratio: trailing P/E ratio, plain number

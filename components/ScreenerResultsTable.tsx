@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ScreenerStockRow } from "@/lib/screener-types";
 import {
   formatCurrencyDisplay,
-  formatPercentOneDecimal,
+  formatMarginOfSafety,
 } from "@/lib/format-display";
 
 type Props = {
@@ -76,7 +76,7 @@ export function ScreenerResultsTable({ rows }: Props) {
               </td>
               <td className="px-4 py-3 text-right tabular-nums text-intrinsic-ink">
                 {row.margin_of_safety !== null
-                  ? formatPercentOneDecimal(row.margin_of_safety)
+                  ? formatMarginOfSafety(row.margin_of_safety)
                   : "—"}
               </td>
               <td className="px-4 py-3">

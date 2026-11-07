@@ -56,6 +56,13 @@ Displays:
   - **Projection years:** 5 (unchanged)
 - Symbol normalization converts TSX class tickers (e.g. `RCI.B.TO` → `RCI-B.TO`) and US class shares (`BRK.B` → `BRK-B`).
 - Intrinsic value is guarded by a trailing P/E sanity check (vs. P/E–implied value) in addition to other data checks.
+- **Guards** (all in `lib/calculate-dcf-client.ts`, shared by the server payload/cron screener and the stock page sliders so they always agree):
+  - Growth used for the default projection is capped at 15% (`MAX_DEFAULT_PROJECTION_GROWTH`), after the source priority above.
+  - Sanity check: intrinsic value is discarded (`calculation_error`) when above 3× the P/E-implied value, trailing EPS × trailing P/E (or price when P/E is unusable) (`MAX_INTRINSIC_TO_PE_IMPLIED`).
+  - Cash flow above 25% or below 0.01% of market cap is treated as implausible and that tier is skipped. It is never rescaled.
+- **Units:** shares = `defaultKeyStatistics.impliedSharesOutstanding` (all share classes), falling back to `sharesOutstanding`. Cash flows are converted from `financialData.financialCurrency` to the listing currency (Yahoo FX quote, e.g. `USDCAD=X`). Trailing EPS is already in listing currency.
+- **Margin of safety** = (intrinsic − price) / intrinsic × 100, so it is at most 100%. Above +15% → Undervalued, below −15% → Overvalued, otherwise Fair. Display clamps values below −100% to "< -100%".
+- Run `npx tsx scripts/check-valuation.ts` (fixture) or `--live` after touching the valuation engine.
 
 ---
 

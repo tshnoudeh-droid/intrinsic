@@ -10,9 +10,16 @@ import type {
   StockDetailPayload,
 } from "@/lib/stock-detail-types";
 import type { StockNewsItem } from "@/lib/stock-news";
-import { calculateDCF } from "@/lib/calculate-dcf-client";
+import {
+  calculateDCF,
+  passesIntrinsicSanityCheck,
+} from "@/lib/calculate-dcf-client";
 import { DCF_ASSUMPTIONS } from "@/lib/calculate-intrinsic-value";
-import { formatCurrencyDisplay, formatPercentOneDecimal } from "@/lib/format-display";
+import {
+  formatCurrencyDisplay,
+  formatMarginOfSafety,
+  formatPercentOneDecimal,
+} from "@/lib/format-display";
 import { isIntrinsicEstimatePotentiallyUnreliable } from "@/lib/intrinsic-estimate-quality";
 import {
   STOCK_PAGE_COPY,
@@ -124,10 +131,10 @@ function valuationCardContextLine(
   if (label === "Fair") {
     return STOCK_PAGE_COPY.valuationCardFairNote;
   }
-  if (label === "Overvalued" && margin < -60) {
+  if (label === "Overvalued" && margin < -150) {
     return STOCK_PAGE_COPY.valuationCardOvervaluedExtremeNote;
   }
-  if (label === "Undervalued" && margin > 80) {
+  if (label === "Undervalued" && margin > 44) {
     return STOCK_PAGE_COPY.valuationCardUndervaluedStrongNote;
   }
   return null;
@@ -283,22 +290,31 @@ export function StockPageContent({ symbol }: Props) {
         intrinsicValue: null as number | null,
         margin: null as number | null,
         label: null as "Undervalued" | "Fair" | "Overvalued" | null,
+        failedSanityCheck: false,
       };
     }
-    const intrinsicValue = calculateDCF({
+    const rawIntrinsic = calculateDCF({
       cashFlow: data.cashFlowUsed,
       sharesOutstanding: data.sharesOutstanding,
       growthRate: appliedGrowthRate,
       discountRate,
       terminalGrowthRate: terminalGrowth,
     });
+    // Same guard as the server/screener so both agree at default assumptions.
+    const failedSanityCheck =
+      rawIntrinsic !== null &&
+      !passesIntrinsicSanityCheck(
+        rawIntrinsic,
+        data.sanityReferenceValue ?? data.price,
+      );
+    const intrinsicValue = failedSanityCheck ? null : rawIntrinsic;
     const margin =
       intrinsicValue !== null
         ? marginOfSafetyPercent(intrinsicValue, data.price)
         : null;
     const label =
       margin !== null ? valuationLabelFromMargin(margin) : null;
-    return { intrinsicValue, margin, label };
+    return { intrinsicValue, margin, label, failedSanityCheck };
   }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
 
   const chatStockContext = useMemo<ChatStockContext | null>(() => {
@@ -388,8 +404,8 @@ export function StockPageContent({ symbol }: Props) {
   const extremeValuationBannerText = useMemo(() => {
     if (!canValuate || liveValuation.margin === null) return null;
     const m = liveValuation.margin;
-    if (m < -60) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
-    if (m > 80) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
+    if (m < -150) return STOCK_PAGE_COPY.extremeOvervaluedBanner;
+    if (m > 44) return STOCK_PAGE_COPY.extremeUndervaluedBanner;
     return null;
   }, [canValuate, liveValuation.margin]);
 
@@ -523,6 +539,11 @@ export function StockPageContent({ symbol }: Props) {
                         rate.
                       </p>
                     ) : null}
+                    {liveValuation.failedSanityCheck ? (
+                      <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
+                        {VALUATION_UNAVAILABLE_BODY_BY_REASON.calculation_error}
+                      </p>
+                    ) : null}
                     {unreliableEstimate ? (
                       <p className="mt-3 text-sm leading-relaxed text-intrinsic-secondary/90">
                         {STOCK_PAGE_COPY.unreliableEstimate}
@@ -546,7 +567,7 @@ export function StockPageContent({ symbol }: Props) {
                                 : "text-intrinsic-ink"
                           }`}
                         >
-                          {formatPercentOneDecimal(liveValuation.margin)}
+                          {formatMarginOfSafety(liveValuation.margin)}
                         </p>
                       </div>
                       <div>
