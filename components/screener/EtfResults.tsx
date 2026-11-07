@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import CompanyInfoButton from "@/components/CompanyInfoButton";
+import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { DEFAULT_ETF_CATEGORY_ORDER, ETF_CATEGORY_LABELS } from "@/lib/etf-catalog";
 import {
   formatPercentDecimal,
@@ -124,8 +125,10 @@ export function EtfResults({ state, onRetry, preferredCategories, intro }: Props
         </div>
       ) : null}
       <p className="px-1 text-xs leading-relaxed text-intrinsic-secondary">
-        A starting list of well-known, low-cost funds, not a recommendation. Prices, fees,
-        yields and returns are live from Yahoo Finance.
+        What these mean: <GlossaryTerm term="expense-ratio">Fee / yr</GlossaryTerm> ·{" "}
+        <GlossaryTerm term="yield" /> · <GlossaryTerm term="ytd" />. A starting list of
+        well-known, low-cost funds, not a recommendation. Prices, fees, yields and returns are
+        live from Yahoo Finance.
       </p>
     </div>
   );

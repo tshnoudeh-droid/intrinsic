@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { StockResultCard } from "@/components/screener/StockResultCard";
 import { useScreenerSectors } from "@/lib/screener-sectors-client";
 import type { ScreenerStockRow } from "@/lib/screener-types";
@@ -121,6 +122,13 @@ export function StockResults({ rows }: Props) {
           <StockResultCard key={row.symbol} row={row} sector={sectors?.[row.symbol] ?? null} />
         ))}
       </ul>
+
+      <p className="mt-3 px-1 text-xs leading-relaxed text-intrinsic-secondary">
+        What these mean: <GlossaryTerm term="margin-of-safety">Safety</GlossaryTerm> ·{" "}
+        <GlossaryTerm term="pe">P/E</GlossaryTerm> ·{" "}
+        <GlossaryTerm term="revenue-growth">Growth</GlossaryTerm> ·{" "}
+        <GlossaryTerm term="market-cap" /> · <GlossaryTerm term="valuation" />
+      </p>
 
       {sorted.length > visible ? (
         <div className="mt-4 flex justify-center">

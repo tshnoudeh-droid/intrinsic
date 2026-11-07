@@ -2,6 +2,7 @@
 
 import { ArrowRight, Search } from "lucide-react";
 import { useId, useMemo, useState } from "react";
+import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { EtfResults, useEtfs } from "@/components/screener/EtfResults";
 import { FilterChips } from "@/components/screener/FilterChips";
 import { ScreenerGuide } from "@/components/screener/ScreenerGuide";
@@ -166,6 +167,12 @@ export default function ScreenerPage() {
                 {example}
               </button>
             ))}
+            <p className="mt-4 w-full text-center text-xs leading-relaxed text-intrinsic-secondary">
+              New to investing? Tap a word:{" "}
+              <GlossaryTerm term="etf" /> · <GlossaryTerm term="index-fund" /> ·{" "}
+              <GlossaryTerm term="ipo" /> · <GlossaryTerm term="pe">P/E</GlossaryTerm> ·{" "}
+              <GlossaryTerm term="dividend" /> · <GlossaryTerm term="margin-of-safety" />
+            </p>
           </div>
         ) : null}
 
@@ -296,8 +303,10 @@ function WhyEtfs() {
     <div className="rounded-3xl bg-intrinsic-accent/70 px-5 py-4 text-[14px] leading-relaxed text-intrinsic-ink ring-1 ring-emerald-900/5">
       <p className="font-semibold">Why ETFs fit this search</p>
       <p className="mt-1 text-intrinsic-ink/80">
-        For long-term, lower-risk goals, one broad ETF holds hundreds or thousands of companies
-        for a small yearly fee, so no single company can sink you. Historically, broad stock
+        For long-term, lower-risk goals, one broad <GlossaryTerm term="etf" /> holds hundreds or
+        thousands of companies for a small yearly <GlossaryTerm term="expense-ratio">fee</GlossaryTerm>,
+        so no single company can sink you. Most of these are{" "}
+        <GlossaryTerm term="index-fund">index funds</GlossaryTerm>. Historically, broad stock
         markets have returned more than 6% a year over long periods, though never guaranteed and
         with ups and downs along the way.
       </p>

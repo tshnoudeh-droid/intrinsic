@@ -92,11 +92,11 @@ export function StockResultCard({ row, sector }: Props) {
             </span>
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-intrinsic-secondary">
-            <span className="truncate">{row.name}</span>
+            <span className="min-w-0 truncate">{row.name}</span>
             {sector ? (
               <>
                 <span aria-hidden className="text-intrinsic-secondary/50">·</span>
-                <span className="shrink-0 text-intrinsic-ink/60">{sector}</span>
+                <span className="max-w-[45%] shrink-0 truncate text-intrinsic-ink/60">{sector}</span>
               </>
             ) : null}
           </div>
