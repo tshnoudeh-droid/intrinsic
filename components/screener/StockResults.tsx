@@ -78,9 +78,9 @@ export function StockResults({ rows }: Props) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         {sectorCounts.length > 1 ? (
-          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" role="group" aria-label="Filter by sector">
+          <div className="-mx-4 flex min-w-0 gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 sm:[mask-image:linear-gradient(to_right,black_92%,transparent)]" role="group" aria-label="Filter by sector">
             <SectorPill active={sector === null} onClick={() => setSector(null)}>
               All <span className="text-intrinsic-secondary">{rows.length}</span>
             </SectorPill>

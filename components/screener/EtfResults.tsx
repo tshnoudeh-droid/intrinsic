@@ -179,10 +179,7 @@ function EtfCard({ etf }: { etf: ScreenerEtfRow }) {
         <Metric label="Yield" value={formatPercentDecimal(etf.dividendYield)} />
         <Metric label="YTD" value={formatPercentDecimal(etf.ytdReturn, { signed: true, digits: 1 })} tone={ytdTone} />
       </div>
-      <div className="hidden w-[180px] shrink-0 items-center justify-end gap-2 sm:flex">
-        <span className="rounded-full border border-intrinsic-secondary/20 px-2.5 py-1 text-[11px] font-medium text-intrinsic-ink/70">
-          {etf.categoryLabel}
-        </span>
+      <div className="hidden shrink-0 items-center justify-end gap-2 sm:flex">
         <div className="relative z-10">
           <CompanyInfoButton symbol={etf.symbol} name={etf.name} variant="icon" />
         </div>

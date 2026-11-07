@@ -1,9 +1,10 @@
 "use client";
 
 import { ArrowRight, Search } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { EtfResults, useEtfs } from "@/components/screener/EtfResults";
 import { FilterChips } from "@/components/screener/FilterChips";
+import { ScreenerGuide } from "@/components/screener/ScreenerGuide";
 import { StockResultSkeleton } from "@/components/screener/StockResultCard";
 import { StockResults } from "@/components/screener/StockResults";
 import {
@@ -14,6 +15,7 @@ import {
   type ScreenerIntent,
   type ScreenerStockRow,
 } from "@/lib/screener-types";
+import { buildScreenerChatContext } from "@/lib/screener-guide-context";
 
 const EXAMPLE_QUERIES = [
   "Something safe for the long run",
@@ -91,16 +93,32 @@ export default function ScreenerPage() {
     ? [...screen.intent.assetTypes, ...(["stock", "etf"] as const).filter((t) => !screen.intent.assetTypes.includes(t))]
     : ["stock", "etf"];
   const etfFirst = order[0] === "etf";
-  const etfCount = etfs.state.status === "ready" ? etfs.state.etfs.length : null;
+  const etfRows = etfs.state.status === "ready" ? etfs.state.etfs : null;
+  const guideContext = useMemo(() => buildScreenerChatContext(screen, etfRows), [screen, etfRows]);
+  const guide = (
+    <ScreenerGuide
+      context={guideContext}
+      disabled={loading}
+      onRunQuery={runQuery}
+      onSelectTab={setTab}
+    />
+  );
+  const preferredEtfCategories = screen?.intent.etfCategories;
+  const etfCount =
+    etfs.state.status === "ready"
+      ? etfs.state.etfs.filter(
+          (e) => !preferredEtfCategories?.length || preferredEtfCategories.includes(e.category),
+        ).length
+      : null;
 
   return (
-    <div className="flex w-full flex-1 flex-col items-center px-4 pb-20 pt-10 sm:px-6 sm:pt-16">
+    <div className="flex w-full flex-1 flex-col items-center px-4 pb-20 pt-8 sm:px-6 sm:pt-16">
       <div className="w-full max-w-4xl">
         <header className="text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-intrinsic-ink sm:text-[42px]">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-intrinsic-ink sm:text-[42px]">
             Find your next investment
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-intrinsic-secondary">
+          <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-intrinsic-secondary sm:text-[15px]">
             Describe what you want in plain English. We&apos;ll screen the S&amp;P 500, the
             TSX 60 and popular ETFs for you.
           </p>
@@ -265,6 +283,9 @@ export default function ScreenerPage() {
             </div>
           </div>
         ) : null}
+
+        {/* Single mount point so the conversation survives the first search. */}
+        <div className={screen ? "mt-10" : "mx-auto mt-10 max-w-2xl"}>{guide}</div>
       </div>
     </div>
   );

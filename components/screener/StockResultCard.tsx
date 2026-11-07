@@ -91,14 +91,15 @@ export function StockResultCard({ row, sector }: Props) {
               {row.valuation_label ?? "No estimate"}
             </span>
           </div>
-          <div className="mt-0.5 truncate text-[13px] text-intrinsic-secondary">{row.name}</div>
-          {sector ? (
-            <div className="mt-1.5">
-              <span className="inline-flex rounded-full border border-intrinsic-secondary/20 px-2 py-0.5 text-[11px] text-intrinsic-ink/70">
-                {sector}
-              </span>
-            </div>
-          ) : null}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-intrinsic-secondary">
+            <span className="truncate">{row.name}</span>
+            {sector ? (
+              <>
+                <span aria-hidden className="text-intrinsic-secondary/50">·</span>
+                <span className="shrink-0 text-intrinsic-ink/60">{sector}</span>
+              </>
+            ) : null}
+          </div>
         </div>
         <div className="relative z-10 sm:hidden">
           <CompanyInfoButton symbol={row.symbol} name={row.name} variant="icon" />
