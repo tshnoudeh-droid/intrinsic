@@ -9,9 +9,11 @@ import type { ChatStockContext } from "@/lib/chat-context";
 type Props = {
   stockContext: ChatStockContext;
   onClose: () => void;
+  /** Question to send automatically (e.g. from an "Ask Intrinsic AI" button). */
+  pendingQuestion?: { id: number; question: string } | null;
 };
 
-export function ChatPanel({ stockContext, onClose }: Props) {
+export function ChatPanel({ stockContext, onClose, pendingQuestion }: Props) {
   // Recreated whenever stockContext changes (e.g. assumption sliders moved)
   // so each request carries the latest snapshot of what's on screen.
   const transport = useMemo(
@@ -28,6 +30,15 @@ export function ChatPanel({ stockContext, onClose }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const isBusy = status === "submitted" || status === "streaming";
+
+  // Send each pending question once (tracked by id, not text).
+  const sentPendingId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pendingQuestion || sentPendingId.current === pendingQuestion.id) return;
+    if (isBusy) return;
+    sentPendingId.current = pendingQuestion.id;
+    sendMessage({ text: pendingQuestion.question });
+  }, [pendingQuestion, isBusy, sendMessage]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -70,7 +81,10 @@ export function ChatPanel({ stockContext, onClose }: Props) {
               const text = message.parts
                 .filter((p) => p.type === "text")
                 .map((p) => p.text)
-                .join("");
+                .join("")
+                // Plain-text panel: drop markdown emphasis the model sometimes emits.
+                .replace(/\*\*(.+?)\*\*/g, "$1")
+                .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$|[.,!?])/g, "$1$2");
               if (!text) return null;
               const isUser = message.role === "user";
               return (
