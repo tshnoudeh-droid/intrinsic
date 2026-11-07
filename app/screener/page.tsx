@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ScreenerResultsTable } from "@/components/ScreenerResultsTable";
+import { StockResultSkeleton } from "@/components/screener/StockResultCard";
+import { StockResults } from "@/components/screener/StockResults";
 import { FilterChips } from "@/components/screener/FilterChips";
 import type {
   ScreenerApiResponse,
@@ -129,6 +130,12 @@ export default function ScreenerPage() {
           <p className="mt-6 text-center text-sm text-rose-900/80">{error}</p>
         ) : null}
 
+        {loading && rows === null ? (
+          <div className="mt-8">
+            <StockResultSkeleton />
+          </div>
+        ) : null}
+
         {rows !== null && !error ? (
           <div className="mt-8">
             {appliedFilters && appliedFilters.length > 0 ? (
@@ -156,7 +163,14 @@ export default function ScreenerPage() {
                 </span>
               ) : null}
             </div>
-            <ScreenerResultsTable rows={rows} />
+            {rows.length > 0 ? (
+              <StockResults key={JSON.stringify(appliedFilters)} rows={rows} />
+            ) : (
+              <div className="rounded-3xl border border-dashed border-intrinsic-secondary/30 px-6 py-12 text-center">
+                <p className="text-sm font-medium text-intrinsic-ink">No stocks matched every condition.</p>
+                <p className="mt-1 text-sm text-intrinsic-secondary">Try removing a filter above, or loosen one by tapping it.</p>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
