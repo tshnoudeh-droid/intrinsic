@@ -6,6 +6,10 @@ import {
   type ChatStockContext,
 } from "@/lib/chat-context";
 import {
+  buildScreenerSystemPrompt,
+  sanitizeChatScreenerContext,
+} from "@/lib/chat-screener-context";
+import {
   checkChatRateLimit,
   clientIdentifierFromRequest,
 } from "@/lib/rate-limit";
@@ -29,10 +33,23 @@ type ChatRequestBody = {
   stockContext: ChatStockContext;
 };
 
+type ScreenerChatRequestBody = {
+  mode: "screener";
+  messages: UIMessage[];
+  screenerContext: unknown;
+};
+
 function isChatRequestBody(json: unknown): json is ChatRequestBody {
   if (!json || typeof json !== "object") return false;
   const o = json as Record<string, unknown>;
   return Array.isArray(o.messages) && typeof o.stockContext === "object" && o.stockContext !== null;
+}
+
+/** The /screener AI guide sends `mode: "screener"` instead of a stock context. */
+function isScreenerChatRequestBody(json: unknown): json is ScreenerChatRequestBody {
+  if (!json || typeof json !== "object") return false;
+  const o = json as Record<string, unknown>;
+  return o.mode === "screener" && Array.isArray(o.messages);
 }
 
 function messagesWithinLimits(messages: UIMessage[]): boolean {
@@ -62,6 +79,24 @@ export async function POST(request: Request) {
   }
 
   const json: unknown = await request.json().catch(() => null);
+
+  if (isScreenerChatRequestBody(json)) {
+    const screenerContext = sanitizeChatScreenerContext(json.screenerContext);
+    if (!screenerContext || !messagesWithinLimits(json.messages)) {
+      return new Response(
+        JSON.stringify({ error: true, message: "Invalid request" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    const result = streamText({
+      model: groq(GROQ_MODEL),
+      system: buildScreenerSystemPrompt(screenerContext),
+      messages: await convertToModelMessages(json.messages),
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    });
+    return result.toUIMessageStreamResponse();
+  }
+
   if (!isChatRequestBody(json) || !messagesWithinLimits(json.messages)) {
     return new Response(
       JSON.stringify({ error: true, message: "Invalid request" }),

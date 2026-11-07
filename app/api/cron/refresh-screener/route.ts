@@ -45,6 +45,21 @@ export async function GET(request: NextRequest) {
   let succeeded = 0;
   const failed: string[] = [];
 
+  // A symbol that fails to refresh must not keep a valuation computed by an
+  // older model (rows from Sept 2026 still showed e.g. WBD at 1981% margin of
+  // safety). Price/market data is left as-is; only valuation fields clear.
+  const clearValuation = async (symbol: string) => {
+    failed.push(symbol);
+    await supabase
+      .from("screener_stocks")
+      .update({
+        intrinsic_value: null,
+        margin_of_safety: null,
+        valuation_label: null,
+      })
+      .eq("symbol", symbol);
+  };
+
   await processWithConcurrency(SCREENER_TICKERS, CONCURRENCY, async (ticker) => {
     try {
       const payload = await withTimeout(
@@ -52,7 +67,7 @@ export async function GET(request: NextRequest) {
         PER_TICKER_TIMEOUT_MS,
       );
       if (!payload) {
-        failed.push(ticker.symbol);
+        await clearValuation(ticker.symbol);
         return;
       }
 
@@ -77,12 +92,12 @@ export async function GET(request: NextRequest) {
       });
 
       if (error) {
-        failed.push(ticker.symbol);
+        await clearValuation(ticker.symbol);
       } else {
         succeeded++;
       }
     } catch {
-      failed.push(ticker.symbol);
+      await clearValuation(ticker.symbol).catch(() => {});
     }
   });
 

@@ -69,6 +69,14 @@ export const checkScreenerRateLimit = createRateLimiter(
   "1 h",
 );
 
+// Re-running the screen with edited filter chips skips Groq (Supabase only),
+// so it gets a roomier bucket than plain-English queries.
+export const checkScreenerFilterRateLimit = createRateLimiter(
+  "intrinsic:screener-filters",
+  120,
+  "1 h",
+);
+
 /**
  * `x-vercel-forwarded-for` is set by Vercel's edge network and cannot be
  * spoofed by the client (Vercel strips any client-supplied header with that
@@ -89,3 +97,11 @@ export function clientIdentifierFromRequest(request: Request): string {
   }
   return headers.get("x-real-ip") ?? "unknown";
 }
+
+// Company profiles call Groq only on a cache miss, so this is generous; when
+// exceeded the route still serves Yahoo data, just without a fresh AI summary.
+export const checkCompanyProfileRateLimit = createRateLimiter(
+  "intrinsic:company-profile",
+  60,
+  "1 h",
+);

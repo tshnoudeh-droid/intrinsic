@@ -27,3 +27,13 @@ export function sanitizeSharesOutstanding(
   if (value <= 0) return null;
   return value;
 }
+
+/**
+ * Ticker shape accepted by Yahoo for US/Canadian listings after
+ * `normalizeSymbol` (e.g. AAPL, BRK-B, SHOP.TO, RCI-B.TO, XEQT.TO, ^GSPC).
+ */
+const TICKER_SYMBOL_PATTERN = /^\^?[A-Z0-9][A-Z0-9.\-]{0,14}$/;
+
+export function isValidTickerSymbol(symbol: string): boolean {
+  return TICKER_SYMBOL_PATTERN.test(symbol);
+}

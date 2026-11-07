@@ -8,7 +8,10 @@ type Props = Pick<
   | "revenueGrowth"
   | "week52High"
   | "week52Low"
->;
+> & {
+  /** Drop rows with no data (e.g. company-only metrics on an ETF). */
+  hideMissing?: boolean;
+};
 
 function formatMarketCap(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -51,7 +54,7 @@ function formatWeekPrice(value: number): string {
 type StatRow = { label: string; value: string };
 
 export function KeyStats(props: Props) {
-  const rows: StatRow[] = [
+  const allRows: StatRow[] = [
     {
       label: "Market Cap",
       value: props.marketCap !== null ? formatMarketCap(props.marketCap) : "—",
@@ -80,6 +83,10 @@ export function KeyStats(props: Props) {
       value: props.week52Low !== null ? formatWeekPrice(props.week52Low) : "—",
     },
   ];
+  const rows = props.hideMissing
+    ? allRows.filter((row) => row.value !== "—")
+    : allRows;
+  if (rows.length === 0) return null;
 
   return (
     <section

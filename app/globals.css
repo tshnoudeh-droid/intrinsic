@@ -6,6 +6,7 @@
   --color-intrinsic-secondary: #a69486;
   --color-intrinsic-light: #faf8f4;
   --color-intrinsic-ink: #2a2622;
+  --color-intrinsic-ink-soft: #6b5a4e;
 }
 
 @theme inline {
@@ -14,6 +15,8 @@
   --color-intrinsic-secondary: #a69486;
   --color-intrinsic-light: #faf8f4;
   --color-intrinsic-ink: #2a2622;
+  /* Readable warm body text (secondary #A69486 is too faint for paragraphs) */
+  --color-intrinsic-ink-soft: #6b5a4e;
   --color-background: var(--color-intrinsic-bg);
   --color-foreground: var(--color-intrinsic-ink);
   --font-sans: var(--font-geist-sans);
@@ -84,4 +87,54 @@ input[type="range"].intrinsic-assumption-range::-moz-range-track {
   height: 6px;
   border-radius: 9999px;
   background: #a69486;
+}
+
+/* Company info popover / bottom sheet */
+@keyframes company-info-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes company-info-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes company-info-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.company-info-popover {
+  animation: company-info-pop 0.16s ease-out;
+}
+
+.company-info-sheet {
+  animation: company-info-sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.company-info-backdrop {
+  animation: company-info-fade 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-info-popover,
+  .company-info-sheet,
+  .company-info-backdrop {
+    animation: none;
+  }
 }

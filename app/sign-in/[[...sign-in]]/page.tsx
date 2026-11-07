@@ -1,12 +1,19 @@
-import { SignIn } from '@clerk/nextjs'
+import type { Metadata } from "next";
+import { SignIn } from "@clerk/nextjs";
+import { AuthShell } from "@/components/nav/AuthShell";
+
+export const metadata: Metadata = {
+  title: "Sign in | Intrinsic",
+};
 
 export default function SignInPage() {
   return (
-    <main
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: '#EDE8DF' }}
-    >
-      <SignIn forceRedirectUrl="/explore" />
-    </main>
-  )
+    <AuthShell note="Sign in to see your watchlist and save new stocks to it.">
+      {/* fallback (not force) so a ?redirect_url from the watchlist is honored */}
+      <SignIn
+        fallbackRedirectUrl="/explore"
+        signUpUrl="/sign-up"
+      />
+    </AuthShell>
+  );
 }

@@ -29,6 +29,13 @@ export const STOCK_PAGE_COPY = {
     "Verify data quality before drawing conclusions.",
   valuationCardFairNote:
     "Price aligns closely with estimated cash flow value.",
+  aboutCompanyTitle: "About the company",
+  aboutFundTitle: "About the fund",
+  aboutLoadError: "Couldn't load the company description.",
+  fundBadge: "ETF",
+  fundValuationTitle: "Intrinsic value doesn't apply to funds",
+  fundDisclaimer:
+    "Fund data comes from Yahoo Finance and may lag the provider's own fact sheet. This is not financial advice.",
 } as const;
 
 export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
@@ -44,9 +51,11 @@ export const VALUATION_UNAVAILABLE_BODY_BY_REASON: Record<
   insufficient_data:
     "Not enough financial data to generate a reliable valuation for this stock.",
   calculation_error:
-    "The valuation result failed a sanity check against the reported price and was discarded. This can happen when underlying financial figures are scaled inconsistently.",
+    "The DCF estimate came out more than 3× what the market pays for this company's current earnings, so it was discarded as unreliable. This usually means the default assumptions don't fit this business (common for insurers, banks and cyclicals) or the underlying figures are inconsistent. Try a higher discount rate or lower growth below.",
   negative_result:
     "The model produced a negative intrinsic value, which is not shown as a usable estimate.",
   terminal_rate_too_close:
     "The discount rate is too close to the terminal growth rate for a stable terminal value. Adjust assumptions or try a different discount rate.",
+  fund_not_applicable:
+    "This is a fund, not a single company. It doesn't have its own cash flows to discount, so a DCF intrinsic value doesn't apply. Its value comes from the stocks or bonds it holds — look at its fees, holdings and price history instead.",
 };
