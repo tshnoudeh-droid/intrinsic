@@ -42,7 +42,7 @@ Example: "something trustworthy in the long run, about 6% return annually, low r
 
 Only respond with {"filters":[]} if the query has nothing to do with picking stocks.`;
 
-function isValidFilter(f: unknown): f is ScreenerFilter {
+export function isValidFilter(f: unknown): f is ScreenerFilter {
   if (!f || typeof f !== "object") return false;
   const o = f as Record<string, unknown>;
   if (

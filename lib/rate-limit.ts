@@ -69,6 +69,14 @@ export const checkScreenerRateLimit = createRateLimiter(
   "1 h",
 );
 
+// Re-running the screen with edited filter chips skips Groq (Supabase only),
+// so it gets a roomier bucket than plain-English queries.
+export const checkScreenerFilterRateLimit = createRateLimiter(
+  "intrinsic:screener-filters",
+  120,
+  "1 h",
+);
+
 /**
  * `x-vercel-forwarded-for` is set by Vercel's edge network and cannot be
  * spoofed by the client (Vercel strips any client-supplied header with that

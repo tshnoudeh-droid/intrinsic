@@ -2,48 +2,18 @@
 
 import { useId, useState } from "react";
 import { ScreenerResultsTable } from "@/components/ScreenerResultsTable";
-import type { ScreenerFilter, ScreenerStockRow } from "@/lib/screener-types";
+import { FilterChips } from "@/components/screener/FilterChips";
+import type {
+  ScreenerApiResponse,
+  ScreenerFilter,
+  ScreenerStockRow,
+} from "@/lib/screener-types";
 
 const EXAMPLE_QUERIES = [
   "margin of safety above 20%, revenue growth above 10%, P/E below 30",
   "undervalued and P/E below 20",
   "market cap above 100 billion",
 ];
-
-type ScreenerApiResponse = {
-  error?: boolean;
-  message?: string;
-  filters?: ScreenerFilter[];
-  rows?: ScreenerStockRow[];
-};
-
-const OPERATOR_SYMBOLS: Record<ScreenerFilter["operator"], string> = {
-  gt: ">",
-  gte: "≥",
-  lt: "<",
-  lte: "≤",
-  eq: "=",
-};
-
-const FIELD_LABELS: Record<ScreenerFilter["field"], string> = {
-  margin_of_safety: "margin of safety",
-  valuation_label: "valuation",
-  market_cap: "market cap",
-  pe_ratio: "P/E",
-  forward_pe: "forward P/E",
-  revenue_growth: "revenue growth",
-  price: "price",
-};
-
-function formatFilter(filter: ScreenerFilter): string {
-  const field = FIELD_LABELS[filter.field] ?? filter.field;
-  const operator = OPERATOR_SYMBOLS[filter.operator] ?? filter.operator;
-  return `${field} ${operator} ${filter.value}`;
-}
-
-function formatFilters(filters: ScreenerFilter[]): string {
-  return filters.map(formatFilter).join(", ");
-}
 
 export default function ScreenerPage() {
   const inputId = useId();
@@ -59,13 +29,17 @@ export default function ScreenerPage() {
   async function runQuery(q: string) {
     const trimmed = q.trim();
     if (!trimmed || loading) return;
+    await runScreen({ query: trimmed });
+  }
+
+  async function runScreen(body: { query: string } | { filters: ScreenerFilter[] }) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/screener", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmed }),
+        body: JSON.stringify(body),
       });
       const json: unknown = await res.json().catch(() => null);
       if (!json || typeof json !== "object") {
@@ -158,9 +132,15 @@ export default function ScreenerPage() {
         {rows !== null && !error ? (
           <div className="mt-8">
             {appliedFilters && appliedFilters.length > 0 ? (
-              <p className="mb-2 text-xs text-intrinsic-secondary">
-                Screening for: {formatFilters(appliedFilters)}
-              </p>
+              <div className="mb-3">
+                <FilterChips
+                  filters={appliedFilters}
+                  disabled={loading}
+                  onChange={(next) => {
+                    if (next.length > 0) void runScreen({ filters: next });
+                  }}
+                />
+              </div>
             ) : null}
             <div className="mb-3 flex items-center justify-between text-xs text-intrinsic-secondary">
               <span>

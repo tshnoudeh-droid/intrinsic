@@ -55,3 +55,11 @@ export const SCREENER_VALUATION_LABELS: readonly ScreenerValuationLabel[] = [
   "Fair",
   "Overvalued",
 ] as const;
+
+/** Response of POST /api/screener. */
+export type ScreenerApiResponse = {
+  error?: boolean;
+  message?: string;
+  filters?: ScreenerFilter[];
+  rows?: ScreenerStockRow[];
+};
