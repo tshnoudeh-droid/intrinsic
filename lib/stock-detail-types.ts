@@ -29,7 +29,7 @@ export type StockDetailPayload = {
   /** Growth rate (decimal) used in the DCF, e.g. 0.05 for 5%. */
   growthRateUsed: number;
   growthSource: GrowthSource;
-  /** Discount rate (decimal) used in the API’s intrinsic snapshot, e.g. 0.06. */
+  /** Discount rate (decimal) used in the API’s intrinsic snapshot, e.g. 0.09. */
   discountRateUsed: number;
   /** Cash flow passed into DCF after validation (FCF from reported, else net income), or null. */
   cashFlowUsed: number | null;

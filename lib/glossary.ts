@@ -12,7 +12,8 @@ export type GlossaryKey =
   | "expense-ratio"
   | "yield"
   | "ytd"
-  | "valuation";
+  | "valuation"
+  | "discount-rate";
 
 export type GlossaryEntry = { term: string; definition: string };
 
@@ -76,5 +77,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     term: "Valuation",
     definition:
       "Intrinsic's verdict from its DCF model: Undervalued (price well below our estimate), Fair, or Overvalued (price well above it).",
+  },
+  "discount-rate": {
+    term: "Discount rate",
+    definition:
+      "The yearly return you'd want for taking the risk of owning a stock. Intrinsic uses 9% by default (Balanced): a safe government bond pays about 4%, plus about 5% for the extra risk of stocks. A higher rate is more cautious and makes fewer stocks look cheap.",
   },
 };

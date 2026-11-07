@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AboutCompanySection } from "@/components/AboutCompanySection";
 import CompanyInfoButton from "@/components/CompanyInfoButton";
-import { IntrinsicChat } from "@/components/IntrinsicChat";
+import { IntrinsicChat, askIntrinsicAi } from "@/components/IntrinsicChat";
+import {
+  DISCOUNT_PRESETS,
+  DISCOUNT_RATE_AI_QUESTION,
+  presetForRate,
+} from "@/lib/discount-presets";
 import { KeyStats } from "@/components/KeyStats";
 import type { ChatStockContext } from "@/lib/chat-context";
 import type {
@@ -179,9 +184,10 @@ export function StockPageContent({ symbol }: Props) {
   const [news, setNews] = useState<StockNewsItem[]>([]);
 
   const [growthRate, setGrowthRate] = useState(0.05);
-  const [discountRate, setDiscountRate] = useState(0.06);
+  const [discountRate, setDiscountRate] = useState<number>(DCF_ASSUMPTIONS.discountRate);
   const [terminalGrowth, setTerminalGrowth] = useState(0.025);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [discountAdvancedOpen, setDiscountAdvancedOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,7 +214,7 @@ export function StockPageContent({ symbol }: Props) {
             json.sharesOutstanding !== null
           ) {
             setGrowthRate(json.growthRateUsed);
-            setDiscountRate(0.06);
+            setDiscountRate(DCF_ASSUMPTIONS.discountRate);
             setTerminalGrowth(0.025);
           }
           setLoadError(false);
@@ -395,7 +401,7 @@ export function StockPageContent({ symbol }: Props) {
     if (!data) return false;
     return (
       appliedGrowthRate !== data.growthRateUsed ||
-      discountRate !== 0.06 ||
+      discountRate !== DCF_ASSUMPTIONS.discountRate ||
       terminalGrowth !== 0.025
     );
   }, [data, appliedGrowthRate, discountRate, terminalGrowth]);
@@ -701,26 +707,81 @@ export function StockPageContent({ symbol }: Props) {
                       />
                     </div>
                     <div>
-                      <div className="mb-2 flex justify-between gap-4 text-sm">
+                      <div className="mb-2 flex items-center justify-between gap-4 text-sm">
                         <span className="flex items-center text-intrinsic-secondary">
-                          Discount rate
-                          <Tooltip text="The annual return you require from this investment. We default to 6% — roughly the 30-year US Treasury yield plus a small premium for equity risk. Buffett uses the treasury yield alone (~4.9%). Raise this if you want a larger margin of safety." />
+                          How cautious are you?
+                          <Tooltip text="This is the discount rate: the yearly return you'd want for taking the risk of owning this stock. Demanding more (Cautious) lowers the intrinsic value, so fewer stocks look cheap." />
                         </span>
                         <span className="tabular-nums text-intrinsic-ink/90">
                           {formatPercentOneDecimal(discountRate * 100)}
                         </span>
                       </div>
-                      <input
-                        type="range"
-                        className="intrinsic-assumption-range"
-                        min={0.04}
-                        max={0.12}
-                        step={0.005}
-                        value={discountRate}
-                        onChange={(e) =>
-                          setDiscountRate(Number(e.target.value))
-                        }
-                      />
+                      <div
+                        role="radiogroup"
+                        aria-label="Discount rate preset"
+                        className="grid grid-cols-3 gap-1 rounded-full border border-intrinsic-secondary/20 bg-intrinsic-bg p-1"
+                      >
+                        {DISCOUNT_PRESETS.map((preset) => {
+                          const active =
+                            presetForRate(discountRate)?.id === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              onClick={() => setDiscountRate(preset.rate)}
+                              className={`rounded-full px-2 py-1.5 text-xs font-medium transition-colors duration-200 ease-out sm:text-sm ${
+                                active
+                                  ? "bg-intrinsic-ink text-intrinsic-light shadow-sm"
+                                  : "text-intrinsic-secondary hover:text-intrinsic-ink"
+                              }`}
+                            >
+                              {preset.label}
+                              <span
+                                className={`ml-1 tabular-nums ${active ? "text-intrinsic-light/70" : "text-intrinsic-secondary/70"}`}
+                              >
+                                {Math.round(preset.rate * 100)}%
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-[#A69486]">
+                        {presetForRate(discountRate)?.blurb ??
+                          `Custom: you're asking for about ${formatPercentOneDecimal(discountRate * 100)} a year.`}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => askIntrinsicAi(DISCOUNT_RATE_AI_QUESTION)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-intrinsic-ink underline-offset-2 hover:underline"
+                        >
+                          <span aria-hidden>✦</span> Not sure? Ask Intrinsic AI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountAdvancedOpen((o) => !o)}
+                          aria-expanded={discountAdvancedOpen}
+                          className="text-xs text-intrinsic-secondary/90 underline-offset-2 hover:text-intrinsic-ink hover:underline"
+                        >
+                          {discountAdvancedOpen ? "Hide advanced" : "Advanced: set exact rate"}
+                        </button>
+                      </div>
+                      {discountAdvancedOpen ? (
+                        <input
+                          type="range"
+                          aria-label="Discount rate"
+                          className="intrinsic-assumption-range mt-3"
+                          min={0.04}
+                          max={0.12}
+                          step={0.005}
+                          value={discountRate}
+                          onChange={(e) =>
+                            setDiscountRate(Number(e.target.value))
+                          }
+                        />
+                      ) : null}
                     </div>
                     <div>
                       <div className="mb-2 flex justify-between gap-4 text-sm">
@@ -749,7 +810,7 @@ export function StockPageContent({ symbol }: Props) {
                         type="button"
                         onClick={() => {
                           setGrowthRate(data.growthRateUsed);
-                          setDiscountRate(0.06);
+                          setDiscountRate(DCF_ASSUMPTIONS.discountRate);
                           setTerminalGrowth(0.025);
                         }}
                         className="text-xs text-intrinsic-secondary/90 underline-offset-2 hover:text-intrinsic-ink hover:underline"
@@ -801,6 +862,9 @@ export function StockPageContent({ symbol }: Props) {
                     </span>
                     <span className="text-sm tabular-nums text-intrinsic-ink">
                       {formatPercentOneDecimal(discountRate * 100)}
+                    </span>
+                    <span className="text-xs text-[#A69486]">
+                      {presetForRate(discountRate)?.label ?? "Custom"}
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1 border-b border-intrinsic-secondary/10 pb-4 sm:border-b-0 sm:border-r sm:border-intrinsic-secondary/15 sm:px-5 sm:pb-0">

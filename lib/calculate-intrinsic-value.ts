@@ -1,7 +1,7 @@
 /** Single source of truth for Smart Simplified DCF (v1). */
 export const DCF_ASSUMPTIONS = {
   growthRate: 0.05,
-  discountRate: 0.06,
+  discountRate: 0.09,
   terminalGrowthRate: 0.025,
   projectionYears: 5,
 } as const;

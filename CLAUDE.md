@@ -49,9 +49,9 @@ Displays:
   - **Growth rate**
     - **Primary:** `earningsTrend` row with `period === "+5y"`, using `earningsEstimate.growth`; if missing, same from `"+1y"`; then `financialData.revenueGrowth` (capped 0–30%); then historical revenue CAGR (capped at 10%); then **default** 5%
   - **Discount rate**
-    - **Default:** 6%
-    - **Slider range:** 4% to 12%
-    - **Rationale:** ~30-year US Treasury yield plus a small equity risk premium
+    - **Default:** 9% ("Balanced")
+    - **Presets (stock page, `lib/discount-presets.ts`):** Cautious 10% / Balanced 9% / Optimistic 7%; exact slider (4% to 12%) under "Advanced"
+    - **Rationale:** ~4% government bond yield plus ~5% equity risk premium. The original 6% made ~60% of the universe look Undervalued, so the label stopped discriminating; changed 2026-11-07.
   - **Terminal growth:** 2.5% (unchanged)
   - **Projection years:** 5 (unchanged)
 - Symbol normalization converts TSX class tickers (e.g. `RCI.B.TO` → `RCI-B.TO`) and US class shares (`BRK.B` → `BRK-B`).

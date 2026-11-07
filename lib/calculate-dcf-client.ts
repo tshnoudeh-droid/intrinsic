@@ -18,7 +18,7 @@ const PROJECTION_YEARS = 5;
  * Guard: growth used for the default 5-year projection is capped here.
  * Analyst `+1y` EPS growth and quarterly `revenueGrowth` (both used as
  * proxies for 5-year growth) are often one-off rebounds (e.g. DAL +46%),
- * and compounding them for 5 years under a 6% discount rate produced
+ * and compounding them for 5 years under the original 6% discount rate produced
  * intrinsic values 3–4× the share price.
  */
 export const MAX_DEFAULT_PROJECTION_GROWTH = 0.15;
